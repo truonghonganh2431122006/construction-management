@@ -4,11 +4,9 @@ const { createHash } = require("crypto");
 const { runMigrations } = require("../src/run-migration");
 
 const directory = path.join(__dirname, "../src/migrations");
-const names = [
-    "001_create_users.sql",
-    "002_create_roles.sql",
-    "003_update_users.sql"
-];
+const names = fs.readdirSync(directory)
+    .filter(name => /^\d{3}_[a-z0-9_]+\.sql$/.test(name))
+    .sort();
 const sql = names.map(name => fs.readFileSync(path.join(directory, name), "utf8")
     .replace(/\r\n/g, "\n"));
 const downSql = names.slice(1).map(name => fs.readFileSync(
@@ -141,6 +139,17 @@ describe("Migration runner (no database connection)", () => {
         expect(statements(client).filter(statement => sql.includes(statement))).toEqual(sql.slice(1));
     });
 
+    test("upgrade from T-04 applies only later migrations", async () => {
+        const t04Count = names.indexOf("003_update_users.sql") + 1;
+        const client = makeClient({ applied: history.slice(0, t04Count), usersExist: true });
+
+        await runMigrations({ client });
+
+        expect(statements(client).filter(statement => sql.includes(statement)))
+            .toEqual(sql.slice(t04Count));
+        expect(statements(client).at(-1)).toBe("COMMIT");
+    });
+
     test("a failed upgrade rolls back SQL and history together", async () => {
         const failure = new Error("DDL failed");
         const client = makeClient({ applied: history.slice(0, 1), failSql: sql[2], failure });
@@ -157,17 +166,47 @@ describe("Migration runner (no database connection)", () => {
     test("down rolls back only the latest migration", async () => {
         const client = makeClient({ applied: history });
         await runMigrations({ client, command: "down" });
-        expect(statements(client).filter(statement => downSql.includes(statement))).toEqual([downSql[1]]);
+        expect(statements(client).filter(statement => downSql.includes(statement))).toEqual([downSql.at(-1)]);
         expect(client.query).toHaveBeenCalledWith(
-            "DELETE FROM schema_migrations WHERE name = $1", [names[2]]
+            "DELETE FROM schema_migrations WHERE name = $1", [names.at(-1)]
         );
         expect(statements(client).at(-1)).toBe("COMMIT");
     });
 
     test("a rollback refused by PostgreSQL retains migration history", async () => {
-        const failure = new Error("Cannot rollback users: role assignments would be lost.");
-        const client = makeClient({ applied: history, failSql: downSql[1], failure });
+        const failure = new Error("Cannot rollback: existing data would be lost.");
+        const client = makeClient({ applied: history, failSql: downSql.at(-1), failure });
         await expect(runMigrations({ client, command: "down" })).rejects.toBe(failure);
+        expect(statements(client).some(statement => statement.startsWith("DELETE"))).toBe(false);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
+    });
+
+    test("a refused T-04 users rollback retains its migration history", async () => {
+        const index = names.indexOf("003_update_users.sql");
+        const failure = new Error("Cannot rollback users: role assignments would be lost.");
+        const client = makeClient({
+            applied: history.slice(0, index + 1),
+            failSql: downSql[index - 1],
+            failure
+        });
+
+        await expect(runMigrations({ client, command: "down" })).rejects.toBe(failure);
+
+        expect(statements(client).some(statement => statement.startsWith("DELETE"))).toBe(false);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
+    });
+
+    test("a refused login-security rollback retains its migration history", async () => {
+        const index = names.indexOf("004_add_login_security.sql");
+        const failure = new Error("Cannot rollback login security: failed attempts or account locks would be lost.");
+        const client = makeClient({
+            applied: history.slice(0, index + 1),
+            failSql: downSql[index - 1],
+            failure
+        });
+
+        await expect(runMigrations({ client, command: "down" })).rejects.toBe(failure);
+
         expect(statements(client).some(statement => statement.startsWith("DELETE"))).toBe(false);
         expect(statements(client).at(-1)).toBe("ROLLBACK");
     });
