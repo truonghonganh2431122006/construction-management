@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   backend:
-    name: Lint and test (Node.js 24)
+    name: Lint, test and Docker build (Node.js 24)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -38,3 +38,14 @@ jobs:
 
       - name: Run tests
         run: npm test -- --ci
+
+      - name: Build Docker image
+        run: docker build --tag construction-management-backend:${{ github.sha }} .
+
+      # Preparation only. Add a deploy job after a dedicated staging host is ready.
+      - name: Prepare staging deployment (validate only)
+        working-directory: ${{ github.workspace }}
+        env:
+          STAGING_ENV_FILE: ./backend/.env.staging.example
+          STAGING_IMAGE_TAG: ${{ github.sha }}
+        run: docker compose -f docker-compose.staging.yml config --quiet
