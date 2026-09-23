@@ -1,0 +1,207 @@
+const fs = require("fs");
+const path = require("path");
+const { createHash } = require("crypto");
+const { runMigrations } = require("../src/run-migration");
+
+const directory = path.join(__dirname, "../src/migrations");
+const names = [
+    "001_create_users.sql",
+    "002_create_roles.sql",
+    "003_update_users.sql"
+];
+const sql = names.map(name => fs.readFileSync(path.join(directory, name), "utf8")
+    .replace(/\r\n/g, "\n"));
+const downSql = names.slice(1).map(name => fs.readFileSync(
+    path.join(directory, name.replace(/\.sql$/, ".down.sql")), "utf8"
+));
+const history = names.map((name, index) => ({
+    name,
+    checksum: createHash("sha256").update(sql[index]).digest("hex")
+}));
+
+function legacyColumns() {
+    return [
+        ["id", "integer", null, "NO", "nextval('users_id_seq'::regclass)"],
+        ["username", "character varying", 100, "NO", null],
+        ["email", "character varying", 150, "NO", null],
+        ["password", "character varying", 255, "NO", null],
+        ["created_at", "timestamp without time zone", null, "YES", "CURRENT_TIMESTAMP"],
+        ["updated_at", "timestamp without time zone", null, "YES", "CURRENT_TIMESTAMP"]
+    ].map(([column_name, data_type, character_maximum_length, is_nullable, column_default]) => ({
+        column_name, data_type, character_maximum_length, is_nullable, column_default
+    }));
+}
+
+function makeClient({
+    applied = null,
+    usersExist = false,
+    columns = legacyColumns(),
+    constraints = ["PRIMARY KEY (id)", "UNIQUE (email)"],
+    locked = true,
+    failSql = null,
+    failure = new Error("Database rejected migration")
+} = {}) {
+    return {
+        query: jest.fn(async statement => {
+            if (statement === failSql) throw failure;
+            if (statement.includes("pg_try_advisory_xact_lock")) {
+                return { rows: [{ locked }] };
+            }
+            if (statement.includes("to_regclass('schema_migrations')")) {
+                return { rows: [{ present: applied !== null }] };
+            }
+            if (statement === "SELECT name, checksum FROM schema_migrations ORDER BY name") {
+                return { rows: applied || [] };
+            }
+            if (statement.includes("to_regclass('users')")) {
+                return { rows: [{ present: usersExist }] };
+            }
+            if (statement.includes("FROM information_schema.columns")) {
+                return { rows: columns };
+            }
+            if (statement.includes("FROM pg_constraint")) {
+                return { rows: constraints.map(definition => ({ definition })) };
+            }
+            if (["BEGIN", "BEGIN READ ONLY", "COMMIT", "ROLLBACK"].includes(statement)
+                || statement.includes("CREATE TABLE IF NOT EXISTS schema_migrations")
+                || statement.startsWith("INSERT INTO schema_migrations")
+                || statement.startsWith("DELETE FROM schema_migrations")
+                || sql.includes(statement) || downSql.includes(statement)) {
+                return { rows: [] };
+            }
+            throw new Error(`Unexpected query in test: ${statement}`);
+        })
+    };
+}
+
+function statements(client) {
+    return client.query.mock.calls.map(([statement]) => statement);
+}
+
+describe("Migration runner (no database connection)", () => {
+    test("fresh install applies only up files in order and commits", async () => {
+        const client = makeClient();
+        const messages = await runMigrations({ client });
+
+        expect(statements(client).filter(statement => sql.includes(statement))).toEqual(sql);
+        expect(statements(client).some(statement => downSql.includes(statement))).toBe(false);
+        expect(messages).toEqual(names.map(name => `Applied: ${name}`));
+        expect(statements(client).at(-1)).toBe("COMMIT");
+        expect(client.query).not.toHaveBeenCalledWith("ROLLBACK");
+    });
+
+    test("rerunning up skips all recorded migrations", async () => {
+        const client = makeClient({ applied: history });
+        await expect(runMigrations({ client })).resolves.toEqual(["No pending migrations."]);
+        expect(statements(client).filter(statement => sql.includes(statement))).toEqual([]);
+        expect(statements(client).some(statement => statement.startsWith("INSERT"))).toBe(false);
+    });
+
+    test("an untracked T-01 table requires an explicit baseline", async () => {
+        const client = makeClient({ usersExist: true });
+        await expect(runMigrations({ client })).rejects.toThrow("migrate:baseline");
+        expect(statements(client).filter(statement => sql.includes(statement))).toEqual([]);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
+        expect(client.query).not.toHaveBeenCalledWith("COMMIT");
+    });
+
+    test("baseline records T-01 without rerunning its SQL", async () => {
+        const client = makeClient({ usersExist: true });
+        await runMigrations({ client, command: "baseline" });
+
+        expect(client.query).toHaveBeenCalledWith(
+            "INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)",
+            [history[0].name, history[0].checksum]
+        );
+        expect(statements(client).filter(statement => sql.includes(statement))).toEqual([]);
+        expect(statements(client).at(-1)).toBe("COMMIT");
+    });
+
+    test("baseline rejects a different schema without recording it", async () => {
+        const columns = legacyColumns();
+        columns[2].character_maximum_length = 255;
+        const client = makeClient({ usersExist: true, columns });
+
+        await expect(runMigrations({ client, command: "baseline" }))
+            .rejects.toThrow("does not match");
+        expect(statements(client).some(statement => statement.startsWith("INSERT"))).toBe(false);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
+    });
+
+    test("baseline requires the original unique email constraint", async () => {
+        const client = makeClient({ constraints: ["PRIMARY KEY (id)"] });
+        await expect(runMigrations({ client, command: "baseline" }))
+            .rejects.toThrow("unique email");
+        expect(statements(client).some(statement => statement.startsWith("INSERT"))).toBe(false);
+    });
+
+    test("upgrade applies new migrations without recreating users", async () => {
+        const client = makeClient({ applied: history.slice(0, 1), usersExist: true });
+        await runMigrations({ client });
+        expect(statements(client).filter(statement => sql.includes(statement))).toEqual(sql.slice(1));
+    });
+
+    test("a failed upgrade rolls back SQL and history together", async () => {
+        const failure = new Error("DDL failed");
+        const client = makeClient({ applied: history.slice(0, 1), failSql: sql[2], failure });
+
+        await expect(runMigrations({ client })).rejects.toBe(failure);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
+        expect(client.query).not.toHaveBeenCalledWith("COMMIT");
+        expect(client.query).not.toHaveBeenCalledWith(
+            "INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)",
+            [history[2].name, history[2].checksum]
+        );
+    });
+
+    test("down rolls back only the latest migration", async () => {
+        const client = makeClient({ applied: history });
+        await runMigrations({ client, command: "down" });
+        expect(statements(client).filter(statement => downSql.includes(statement))).toEqual([downSql[1]]);
+        expect(client.query).toHaveBeenCalledWith(
+            "DELETE FROM schema_migrations WHERE name = $1", [names[2]]
+        );
+        expect(statements(client).at(-1)).toBe("COMMIT");
+    });
+
+    test("a rollback refused by PostgreSQL retains migration history", async () => {
+        const failure = new Error("Cannot rollback users: role assignments would be lost.");
+        const client = makeClient({ applied: history, failSql: downSql[1], failure });
+        await expect(runMigrations({ client, command: "down" })).rejects.toBe(failure);
+        expect(statements(client).some(statement => statement.startsWith("DELETE"))).toBe(false);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
+    });
+
+    test("down never drops the original T-01 users table", async () => {
+        const client = makeClient({ applied: history.slice(0, 1) });
+        await expect(runMigrations({ client, command: "down" })).rejects.toThrow("No rollback file");
+        expect(statements(client).some(statement => statement.startsWith("DELETE"))).toBe(false);
+    });
+
+    test("modified applied migrations are rejected", async () => {
+        const client = makeClient({ applied: [{ ...history[0], checksum: "0".repeat(64) }] });
+        await expect(runMigrations({ client })).rejects.toThrow("Applied migration has changed");
+        expect(statements(client).filter(statement => sql.includes(statement))).toEqual([]);
+    });
+
+    test("status does not create a history table or execute migration SQL", async () => {
+        const client = makeClient();
+        await expect(runMigrations({ client, command: "status" }))
+            .resolves.toEqual(names.map(name => `pending: ${name}`));
+        expect(statements(client)[0]).toBe("BEGIN READ ONLY");
+        expect(statements(client).some(statement => /CREATE|INSERT|DELETE/.test(statement))).toBe(false);
+    });
+
+    test("concurrent runners fail before changing schema", async () => {
+        const client = makeClient({ locked: false });
+        await expect(runMigrations({ client })).rejects.toThrow("Another migration runner");
+        expect(statements(client).some(statement => /CREATE|INSERT|DELETE/.test(statement))).toBe(false);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
+    });
+
+    test("an unknown command is rejected before connecting or starting a transaction", async () => {
+        const client = makeClient();
+        await expect(runMigrations({ client, command: "reset" })).rejects.toThrow("Unknown migration command");
+        expect(client.query).not.toHaveBeenCalled();
+    });
+});

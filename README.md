@@ -145,3 +145,83 @@ Environment `staging` và cơ chế kích hoạt deploy trước khi thêm job t
 
 Tham khảo [cấu hình môi trường của Docker Compose](https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/)
 và [lệnh kiểm tra cấu hình Compose](https://docs.docker.com/reference/cli/docker/compose/config/).
+
+## 6. Migration users và roles (T-04 S-02)
+
+Các lệnh bên dưới chạy trong thư mục `backend` và sử dụng database cấu hình
+trong `backend/.env`. Chỉ chạy lệnh thay đổi schema sau khi đã review migration.
+Docker và CI không tự chạy migration. Chưa có seed roles vì chưa chốt danh sách
+sáu vai trò.
+
+| Migration | Nội dung |
+| --- | --- |
+| `001_create_users.sql` | Migration T-01 gốc, giữ nguyên |
+| `002_create_roles.sql` | Tạo `roles`: `id`, `name` duy nhất, `created_at`, `updated_at` |
+| `003_update_users.sql` | Email `VARCHAR(255) UNIQUE NOT NULL`, đổi `password` thành `password_hash VARCHAR(255) NOT NULL`, thêm `role_id` tham chiếu `roles(id)` |
+
+`users` được nâng cấp bằng `ALTER TABLE`, không tạo lại hoặc xóa dữ liệu.
+`username` cũ được giữ như cột legacy và cho phép NULL để tài khoản mới không
+bắt buộc có username. `role_id` cho phép NULL; migration không tự gán quyền.
+ID, email, mật khẩu và timestamps cũ được giữ nguyên. Đổi tên cột mật khẩu không
+băm lại dữ liệu; tầng ứng dụng sẽ chịu trách nhiệm tạo/kiểm tra hash Argon2id.
+Các cột timestamp tiếp tục dùng `TIMESTAMP DEFAULT CURRENT_TIMESTAMP` như T-01;
+`updated_at` không tự thay đổi khi cập nhật một bản ghi.
+
+### Database đã chạy migration T-01
+
+Runner cũ không lưu lịch sử migration. Trước tiên xem trạng thái; migration 001
+sẽ hiện `pending` nếu chưa có lịch sử, dù bảng `users` đã tồn tại:
+
+```bash
+npm run migrate:status
+```
+
+Sau khi review và xác nhận đúng database, ghi nhận T-01 đã chạy bằng lệnh sau
+(chỉ chạy một lần). Baseline kiểm tra các cột, kiểu dữ liệu, defaults, primary
+key và unique email trước khi ghi vào `schema_migrations`. Nó không chạy lại
+SQL tạo bảng `users`:
+
+```bash
+npm run migrate:baseline
+npm run migrate
+npm run migrate:status
+```
+
+Nếu schema khác T-01, baseline dừng để kiểm tra thủ công. Không sửa lịch sử để
+bỏ qua lỗi này. `npm run migrate` cũng dừng nếu thấy bảng `users` chưa có lịch
+sử, thay vì tự cho rằng migration 001 đã chạy.
+
+### Database mới, chưa có bảng users
+
+Không cần baseline. Sau khi review, chạy:
+
+```bash
+npm run migrate
+```
+
+Runner chạy các file `NNN_ten_migration.sql` theo thứ tự và bỏ qua các migration
+đã ghi nhận. File `.down.sql` chỉ dùng khi rollback. Mỗi lần chạy dùng một
+transaction trên cùng connection; nếu lỗi thì toàn bộ thay đổi schema và lịch
+sử của lần chạy đó được rollback. Checksum phát hiện sửa đổi migration đã áp
+dụng; khóa advisory ngăn hai runner chạy đồng thời trong cùng database/schema.
+
+### Rollback
+
+Sau khi review, lệnh sau hoàn tác **một migration mới nhất** mỗi lần gọi:
+
+```bash
+npm run migrate:rollback
+```
+
+Sau khi áp dụng 001, 002, 003, lần đầu rollback 003; lần tiếp theo rollback 002.
+Migration 001 không có file down: runner dừng ở schema T-01, không xóa bảng users.
+
+Rollback 003 sẽ bị chặn nếu có user đã được gán `role_id`, email dài quá 150 ký
+tự, hoặc `username` là NULL. Những trường hợp này không thể trở về schema cũ mà
+giữ nguyên dữ liệu/ràng buộc. Rollback 002 sẽ bị chặn nếu `roles` có dữ liệu.
+Runner không tự xóa role, bỏ quyền, cắt email hay tự điền username để vượt qua
+các điều kiện trên. Khi bị chặn, transaction và lịch sử migration được giữ nguyên.
+
+Các bài Jest cho runner dùng client giả, không kết nối database. Kiểm thử schema
+và các điều kiện rollback trên PostgreSQL cần được thực hiện trên database thử
+nghiệm riêng trước khi áp dụng vào môi trường có dữ liệu.
