@@ -150,8 +150,8 @@ và [lệnh kiểm tra cấu hình Compose](https://docs.docker.com/reference/cl
 
 Các lệnh bên dưới chạy trong thư mục `backend` và sử dụng database cấu hình
 trong `backend/.env`. Chỉ chạy lệnh thay đổi schema sau khi đã review migration.
-Docker và CI không tự chạy migration. Chưa có seed roles vì chưa chốt danh sách
-sáu vai trò.
+Docker và CI không tự chạy migration. Phần T-04 chỉ tạo schema; seed sáu role
+chuẩn được bổ sung cùng chức năng đăng ký ở mục 7.
 
 | Migration | Nội dung |
 | --- | --- |
@@ -225,3 +225,197 @@ các điều kiện trên. Khi bị chặn, transaction và lịch sử migratio
 Các bài Jest cho runner dùng client giả, không kết nối database. Kiểm thử schema
 và các điều kiện rollback trên PostgreSQL cần được thực hiện trên database thử
 nghiệm riêng trước khi áp dụng vào môi trường có dữ liệu.
+
+## 7. Đăng ký, đăng nhập và RBAC
+
+Backend cung cấp `POST /auth/register`, `POST /auth/login` và `POST /auth/logout`.
+Form `Register.jsx` gọi API bằng axios. Bố cục và CSS được giữ nguyên; dropdown
+đăng ký chỉ hiển thị Kỹ sư, Công nhân và Người xem.
+
+### Chuẩn bị database và session
+
+Trong thư mục `backend`, sau khi review migration và xác nhận đúng database:
+
+```bash
+npm ci
+npm run migrate:status
+npm run migrate
+npm run seed:roles
+```
+
+Database T-04 đã có lịch sử migration thì không chạy baseline lại. Nếu chỉ có
+bảng T-01 từ runner cũ, thực hiện baseline theo mục 6 trước.
+
+Nếu `/auth/register` trả `500`, xem terminal backend trong môi trường
+`development` (mặc định khi chưa đặt `NODE_ENV`). Log `[backend:error]` có tên
+thao tác, mã PostgreSQL và stack; không ghi body, tham số SQL hoặc `error.detail`
+vì có thể chứa mật khẩu/hash. Client vẫn nhận thông báo lỗi chung.
+
+Lỗi `42P01: relation "roles" does not exist` tại `userModel.findRoleByName`
+nghĩa là database chưa được migrate, không phải chỉ thiếu seed. Database T-01
+còn cột `password`, chưa có `password_hash`, `role_id`, `fullname`. Với database
+đúng schema T-01 và chưa có lịch sử migration, chạy trong `backend`:
+
+```bash
+npm run migrate:baseline
+npm run migrate
+npm run seed:roles
+npm run migrate:status
+```
+
+Baseline chỉ ghi nhận schema cũ sau khi kiểm tra; không tạo lại bảng `users`.
+Nếu đã chạy migration thì bỏ qua baseline. Sau khi cập nhật code, khởi động lại
+backend để dùng log mới (`npm run dev` tự khởi động lại khi file thay đổi).
+
+Kiểm tra trong PostgreSQL, không cần đọc toàn bộ hash:
+
+```sql
+SELECT name FROM roles ORDER BY name;
+
+SELECT column_name, data_type, character_maximum_length, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'users'
+ORDER BY ordinal_position;
+
+SELECT conname, pg_get_constraintdef(oid) AS definition
+FROM pg_constraint
+WHERE conrelid = 'public.users'::regclass AND contype IN ('u', 'f');
+
+SELECT u.id, u.fullname, u.email, r.name AS role, u.created_at,
+       u.password_hash LIKE '$argon2id$%' AS is_argon2id
+FROM users u
+JOIN roles r ON r.id = u.role_id
+WHERE u.email = 'test@gmail.com';
+```
+
+Dùng email thuần trong JSON, ví dụ `"email": "test@gmail.com"`.
+
+- Migration 004 thêm `failed_login_attempts INTEGER DEFAULT 0` và
+  `locked_until TIMESTAMP NULL`.
+- Migration 005 tạo `user_sessions` cho PostgreSQL session store.
+- Migration 006 thêm `fullname VARCHAR(255)`, giữ nguyên dữ liệu user cũ.
+- `seed:roles` thêm sáu role chuẩn bằng `ON CONFLICT DO NOTHING`, có thể chạy
+  lại, không tạo tài khoản admin hay xóa role đã có.
+
+Sáu role chuẩn là `admin`, `project_manager`, `engineer`, `worker`, `accountant`,
+`viewer`. Đăng ký công khai chỉ chấp nhận `engineer`, `worker`, `viewer`.
+`admin`, `project_manager` và `accountant` phải được cấp qua chức năng quản trị
+sau này. Backend tự kiểm tra quy tắc này kể cả khi client sửa request.
+Giá trị cũ `employee` được ánh xạ sang `worker`; `manager` thành
+`project_manager`, nên không được đăng ký công khai.
+
+Mỗi tài khoản đăng ký mới phải có fullname và một role tồn tại trong bảng roles;
+`role_id` do backend tra cứu, không lấy từ client. Các tài khoản legacy chưa có
+fullname/role vẫn giữ giá trị NULL hiện có; migration không tự đoán tên hoặc
+cấp quyền cho các tài khoản này. RBAC từ chối quyền nếu role không phù hợp.
+
+Tham khảo `backend/.env.auth.example` và thêm các biến cần thiết vào `.env`
+hiện có, giữ nguyên cấu hình `DB_*`. Sinh secret bằng:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Đặt kết quả vào `SESSION_SECRET`. Production bắt buộc có secret tối thiểu
+32 byte; local chưa có secret sẽ dùng giá trị ngẫu nhiên mỗi lần khởi động,
+khiến cookie cũ không còn dùng được sau restart. Cookie có `HttpOnly`,
+`SameSite=Lax`, thời hạn 8 giờ; session chỉ lưu `userId`, dữ liệu session nằm
+trong PostgreSQL. Dùng `SESSION_COOKIE_SECURE=false` cho HTTP local, `true`
+cho HTTPS. Nếu có đúng một reverse proxy tin cậy phía trước, đặt `TRUST_PROXY=1`.
+Cookie `Secure` không được gửi qua HTTP, kể cả khi backend chạy Docker local.
+
+### Chạy frontend và backend
+
+Terminal backend:
+
+```bash
+cd backend
+npm start
+```
+
+Terminal frontend:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Mở URL Vite hiển thị, thường là `http://localhost:5173/register`. Vite chuyển
+request `/auth` tới `http://127.0.0.1:3000`, nên không cần mở CORS cho mọi origin.
+Nếu backend chạy cổng khác, đặt `API_PROXY_TARGET` trước khi khởi động Vite,
+ví dụ trong PowerShell:
+
+```powershell
+$env:API_PROXY_TARGET = "http://127.0.0.1:3001"
+npm run dev
+```
+
+Proxy cũng áp dụng cho `npm run preview`. Khi deploy frontend build tĩnh,
+cần reverse proxy cùng origin chuyển `/auth` tới backend; Vite dev proxy không
+được đóng gói trong thư mục `dist`.
+
+### API đăng ký và cách test
+
+Gửi `Content-Type: application/json` tới `POST /auth/register`:
+
+```json
+{
+  "fullname": "Nguyễn Văn A",
+  "email": "nguyenvana@example.com",
+  "password": "Example-password-123",
+  "role": "engineer"
+}
+```
+
+Backend trim fullname, chuẩn hóa email thành chữ thường, yêu cầu password ít
+nhất 8 ký tự và tối đa 1024 byte. Password không bị trim và chỉ được lưu dưới
+dạng Argon2id. API trả `201` cùng thông báo và user công khai; không trả password
+hoặc hash. Đăng ký không tự tạo session đăng nhập.
+
+| Tình huống | HTTP |
+| --- | --- |
+| Đăng ký hợp lệ với engineer/worker/viewer | `201` |
+| Email đã tồn tại, kể cả request đồng thời | `409` |
+| Dữ liệu không hợp lệ hoặc role chưa được seed | `400` |
+| Yêu cầu admin/project_manager/accountant | `403` |
+
+Thử form với email mới, kiểm tra thông báo thành công; gửi lại email đó để thấy
+lỗi trùng email. Mật khẩu xác nhận không khớp bị chặn tại form. Dùng Postman hoặc
+API client gửi trực tiếp `role: "admin"` để kiểm tra backend trả `403`.
+
+`POST /auth/login` nhận `{ "email": "...", "password": "..." }`. Khi đúng,
+backend reset số lần sai, xóa trạng thái khóa, đổi session ID và lưu session.
+Email không tồn tại, sai mật khẩu và tài khoản đang khóa đều trả `401` với
+`Thông tin đăng nhập không chính xác`. Sai 5 lần sẽ khóa 15 phút; khi hết khóa,
+lần sai tiếp theo bắt đầu từ 1. Transaction và khóa hàng PostgreSQL bảo vệ bộ
+đếm khi có nhiều request đồng thời. `POST /auth/logout` hủy session và xóa cookie.
+
+Trong lần cập nhật này chỉ form đăng ký được nối API; `Login.jsx` vẫn là handler
+demo hiện có. Có thể test API login/logout bằng Postman có lưu cookie hoặc
+Supertest. Chưa thêm API quản trị tạo user đặc quyền.
+
+### Dùng middleware RBAC cho API tiếp theo
+
+```javascript
+const { requireAuth, requireRoles } = require("../middleware/auth");
+
+router.get("/projects", requireAuth, requireRoles("admin", "project_manager"), controller.list);
+```
+
+`requireAuth` lấy user theo session; `requireRoles` kiểm tra tên role được đọc
+từ database ở mỗi request. Header, query, body và role cũ lưu ở client không
+được dùng để cấp quyền. Chưa đăng nhập trả `401`, sai role trả `403`.
+
+Kiểm tra code:
+
+```bash
+cd backend
+npm run lint
+npm test -- --ci
+```
+
+Trong thư mục `frontend`, chạy `npm run lint` và `npm run build`.
+Rollback 004 bị chặn khi còn số lần sai/trạng thái khóa; 005 bị chặn khi bảng
+session có dữ liệu; 006 bị chặn khi đã lưu fullname. Seed roles không tự hoàn
+tác/xóa role khi rollback schema để tránh mất dữ liệu hoặc quyền đang sử dụng.

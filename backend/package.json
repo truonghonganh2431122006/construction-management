@@ -11,7 +11,8 @@
     "migrate": "node src/run-migration.js up",
     "migrate:rollback": "node src/run-migration.js down",
     "migrate:status": "node src/run-migration.js status",
-    "migrate:baseline": "node src/run-migration.js baseline"
+    "migrate:baseline": "node src/run-migration.js baseline",
+    "seed:roles": "node src/seed-roles.js"
   },
   "keywords": [],
   "author": "",

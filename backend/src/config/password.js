@@ -25,4 +25,8 @@ async function verifyPassword(hash, password) {
     }
 }
 
-module.exports = { verifyPassword };
+async function hashPassword(password) {
+    return argon2.hash(password, { type: argon2.argon2id });
+}
+
+module.exports = { verifyPassword, hashPassword };

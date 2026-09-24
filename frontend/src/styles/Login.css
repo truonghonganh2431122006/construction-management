@@ -1,0 +1,791 @@
+/* =========================
+   RESET
+========================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+
+html,
+body,
+#root {
+
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+}
+
+
+/* FIX FULL MÀN HÌNH
+   Ghi đè style mặc định của Vite (App.css / index.css):
+   #root bị giới hạn max-width 1280px + padding + text-align:center
+   nên trang bị thu hẹp, lệch và form bị cắt bên phải */
+
+body {
+
+    display: block !important;
+
+    min-width: 0 !important;
+
+    place-items: normal !important;
+
+}
+
+
+#root {
+
+    max-width: none !important;
+
+    margin: 0 !important;
+
+    padding: 0 !important;
+
+    text-align: left !important;
+
+    display: block !important;
+
+}
+
+
+
+/* =========================
+   MAIN BACKGROUND
+========================= */
+
+
+.login-container {
+
+    position: fixed;
+
+    top: 0;
+
+    left: 0;
+
+    width: 100vw;
+
+    height: 100vh;
+
+
+    background-color: #030f23;
+
+    overflow: hidden;
+
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+
+    padding: 0 8vw;
+
+}
+
+
+
+/* ảnh nền lớp dưới: cùng ảnh, phóng to + làm mờ để lấp 2 bên */
+
+.login-container::before {
+
+    content: "";
+
+    position: absolute;
+
+    inset: 0;
+
+    z-index: -2;
+
+    background-image: url("../assets/anh_login.png");
+
+    background-size: cover;
+
+    background-position: center;
+
+    background-repeat: no-repeat;
+
+    filter: blur(28px);
+
+    transform: scale(1.15);
+
+}
+
+
+/* ảnh nền lớp trên: hiển thị TOÀN BỘ ảnh, không bị cắt */
+
+.login-container::after {
+
+    content: "";
+
+    position: absolute;
+
+    inset: 0;
+
+    z-index: -1;
+
+    background-image: url("../assets/anh_login.png");
+
+    background-size: contain;
+
+    background-position: center;
+
+    background-repeat: no-repeat;
+
+}
+
+
+
+/* overlay */
+
+.overlay {
+
+    position:absolute;
+
+    inset:0;
+
+
+    background:
+
+    linear-gradient(
+
+        90deg,
+
+        rgba(3,15,35,0.88),
+
+        rgba(3,15,35,0.35),
+
+        rgba(3,15,35,0.75)
+
+    );
+
+
+}
+
+
+
+/* =========================
+   LEFT BRAND
+========================= */
+
+
+.brand {
+
+
+    position:relative;
+
+    z-index:2;
+
+
+    width:50%;
+
+
+    color:white;
+
+
+    text-align:left;
+
+
+}
+
+
+
+.brand h1 {
+
+
+    font-size:48px;
+
+
+    font-weight:900;
+
+
+    line-height:1.15;
+
+
+    letter-spacing:2px;
+
+
+    background:
+
+    linear-gradient(
+
+        90deg,
+
+        #ffffff,
+
+        #57e8ff
+
+    );
+
+
+    -webkit-background-clip:text;
+
+    -webkit-text-fill-color:transparent;
+
+
+}
+
+
+
+.brand p {
+
+
+    margin-top:25px;
+
+
+    font-size:20px;
+
+
+    color:white;
+
+
+}
+
+
+
+/* =========================
+   LOGIN CARD
+========================= */
+
+
+.login-card {
+
+
+    position:relative;
+
+    z-index:3;
+
+
+    width:420px;
+
+    max-width:100%;
+
+    flex-shrink:0;
+
+
+    padding:40px;
+
+
+    border-radius:26px;
+
+
+
+    background:
+
+    rgba(255,255,255,0.16);
+
+
+
+    backdrop-filter:
+
+    blur(18px);
+
+
+
+    border:
+
+    1px solid rgba(255,255,255,0.25);
+
+
+
+    box-shadow:
+
+    0 20px 60px rgba(0,0,0,0.45);
+
+
+}
+
+
+
+/* title */
+
+
+.login-card h2 {
+
+
+    color:white;
+
+    text-align:center;
+
+
+    font-size:32px;
+
+
+    margin-bottom:8px;
+
+
+}
+
+
+.subtitle {
+
+
+    text-align:center;
+
+
+    color:
+
+    rgba(255,255,255,0.8);
+
+
+    margin-bottom:30px;
+
+
+}
+
+
+
+/* =========================
+   ANT DESIGN FORM
+========================= */
+
+
+.login-card .ant-form {
+
+    width:100%;
+
+    text-align:left;
+
+}
+
+
+.ant-form-item-label > label {
+
+
+    color:white !important;
+
+    font-weight:600;
+
+}
+
+
+
+/* EMAIL INPUT */
+
+
+.ant-input {
+
+
+    height:48px !important;
+
+
+    border-radius:12px !important;
+
+
+}
+
+
+
+/* PASSWORD FIX */
+
+.ant-input-affix-wrapper {
+
+
+    height:48px !important;
+
+
+    border-radius:12px !important;
+
+
+    background:
+
+    rgba(255,255,255,0.18)
+
+    !important;
+
+
+    border:
+
+    1px solid rgba(255,255,255,0.3)
+
+    !important;
+
+
+    display:flex;
+
+    align-items:center;
+
+    padding:0 14px !important;
+
+
+}
+
+
+
+.ant-input-affix-wrapper input {
+
+
+    background:transparent !important;
+
+
+    color:white !important;
+
+
+}
+
+
+/* input nằm trong ô có icon: bỏ chiều cao/viền lồng nhau để chữ không bị lệch */
+
+.ant-input-affix-wrapper > input.ant-input {
+
+    height:100% !important;
+
+    padding:0 !important;
+
+    border:none !important;
+
+    border-radius:0 !important;
+
+    box-shadow:none !important;
+
+}
+
+
+
+.ant-input-affix-wrapper .ant-input-prefix {
+
+
+    color:#53ddff;
+
+    margin-right:10px;
+
+}
+
+
+
+.ant-input-password-icon {
+
+
+    color:white !important;
+
+}
+
+
+
+/* placeholder */
+
+
+.ant-input::placeholder {
+
+
+    color:
+
+    rgba(255,255,255,0.6);
+
+
+}
+
+
+
+/* BUTTON */
+
+
+.ant-btn-primary {
+
+
+    height:52px !important;
+
+    width:100%;
+
+
+    border-radius:14px !important;
+
+
+    font-size:17px;
+
+
+    font-weight:700;
+
+
+
+    background:
+
+    linear-gradient(
+
+        90deg,
+
+        #0066ff,
+
+        #00d4ff
+
+    ) !important;
+
+
+    border:none !important;
+
+
+}
+
+
+
+.ant-btn-primary:hover {
+
+
+    transform:
+
+    translateY(-2px);
+
+}
+
+
+
+/* REGISTER */
+
+
+.register-link {
+
+
+    text-align:center;
+
+
+    margin-top:25px;
+
+
+    color:white;
+
+
+}
+
+
+.register-link a {
+
+
+    color:#5de4ff;
+
+
+    font-weight:700;
+
+
+}
+
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+
+@media(max-width:1000px){
+
+
+    .brand{
+
+        display:none;
+
+    }
+
+
+    .login-container{
+
+
+        justify-content:center;
+
+
+        padding:20px;
+
+    }
+
+
+}
+
+
+@media(max-width:500px){
+
+
+    .login-card{
+
+
+        width:100%;
+
+
+        padding:25px;
+
+    }
+
+
+}
+
+
+
+/* =========================
+   FORM CAO (ĐĂNG KÝ) - KHÔNG TRÀN MÀN HÌNH
+========================= */
+
+
+/* card luôn nằm gọn trong màn hình, nếu vẫn quá cao thì tự cuộn (ẩn thanh cuộn) */
+
+.login-card {
+
+    max-height: calc(100vh - 32px);
+
+    overflow-y: auto;
+
+    scrollbar-width: none;
+
+}
+
+
+.login-card::-webkit-scrollbar {
+
+    display: none;
+
+}
+
+
+
+/* ô chọn Vai trò: cùng chiều cao / bo góc với ô input */
+
+.login-card .ant-select {
+
+    width: 100%;
+
+}
+
+
+.login-card .ant-select .ant-select-selector {
+
+    height: 48px !important;
+
+    border-radius: 12px !important;
+
+    align-items: center;
+
+}
+
+
+.login-card .ant-select .ant-select-selection-item,
+.login-card .ant-select .ant-select-selection-placeholder {
+
+    line-height: 46px !important;
+
+}
+
+
+
+/* màn hình thấp: thu gọn khoảng cách cho vừa 1 màn hình */
+
+@media (max-height: 900px) {
+
+
+    .login-card {
+
+        padding: 24px 32px;
+
+    }
+
+
+    .login-card h2 {
+
+        font-size: 28px;
+
+        margin-bottom: 4px;
+
+    }
+
+
+    .subtitle {
+
+        margin-bottom: 16px;
+
+    }
+
+
+    .login-card .ant-form-item {
+
+        margin-bottom: 14px !important;
+
+    }
+
+
+    .ant-form-item-label {
+
+        padding-bottom: 4px !important;
+
+    }
+
+
+    .ant-input,
+    .ant-input-affix-wrapper {
+
+        height: 42px !important;
+
+    }
+
+
+    .login-card .ant-select .ant-select-selector {
+
+        height: 42px !important;
+
+    }
+
+
+    .login-card .ant-select .ant-select-selection-item,
+    .login-card .ant-select .ant-select-selection-placeholder {
+
+        line-height: 40px !important;
+
+    }
+
+
+    .ant-btn-primary {
+
+        height: 46px !important;
+
+    }
+
+
+    .register-link {
+
+        margin-top: 14px;
+
+    }
+
+
+}
+
+
+
+/* =========================
+   MÀN HÌNH RỘNG HƠN ẢNH (16:9)
+   Kéo giãn ảnh nhẹ theo chiều ngang + làm mờ dần 2 mép
+   để hòa vào nền, không còn cảm giác bị thiếu 2 bên
+========================= */
+
+@media (min-aspect-ratio: 16/9) {
+
+
+    .login-container {
+
+        /* 1 = không kéo giãn (2 bên trống nhiều nhất) | 1.12 = cân đối | 1.18 = phủ kín hơn nhưng ảnh bè hơn */
+        --stretch: 1.12;
+
+    }
+
+
+    .login-container::after {
+
+        top: 0;
+
+        bottom: 0;
+
+        left: 50%;
+
+        right: auto;
+
+        width: min(100%, calc(100vh * 16 / 9 * var(--stretch)));
+
+        transform: translateX(-50%);
+
+        background-size: 100% 100%;
+
+        -webkit-mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+
+        mask-image: linear-gradient(to right, transparent 0, #000 7%, #000 93%, transparent 100%);
+
+    }
+
+
+}

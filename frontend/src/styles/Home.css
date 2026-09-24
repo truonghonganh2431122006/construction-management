@@ -1,0 +1,55 @@
+.home-container {
+
+    min-height: 100vh;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    background: #f0f2f5;
+
+}
+
+
+.home-card {
+
+    width: 450px;
+
+    text-align: center;
+
+    border-radius: 16px;
+
+    background: white;
+
+}
+
+
+.home-card h1 {
+
+    color: #1f2937;
+
+    font-size: 28px;
+
+    margin-bottom: 20px;
+
+}
+
+
+.home-card h2 {
+
+    color: #111827;
+
+    font-size: 22px;
+
+}
+
+
+.home-card p {
+
+    color: #374151;
+
+    font-size: 16px;
+
+}
