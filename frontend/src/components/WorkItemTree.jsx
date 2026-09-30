@@ -23,8 +23,9 @@ function WorkItemEditor({ item, onSave, onCancel }) {
     );
 }
 
-function WorkItemNode({ item, items, depth, expanded, editingId, onToggle, onEdit, onSave, onCancel, onDelete, onAdd }) {
+function WorkItemNode({ item, items, depth, expanded, editingId, onToggle, onEdit, onSave, onCancel, onDelete, onAdd, onAddTask }) {
     const children = childrenOf(items, item.id);
+    const isLeaf = children.length === 0;
     const isExpanded = expanded.has(item.id);
     return (
         <div className="work-item-node" style={{ "--depth": depth }}>
@@ -39,6 +40,11 @@ function WorkItemNode({ item, items, depth, expanded, editingId, onToggle, onEdi
                         <span className="work-item-title">{item.title}</span>
                         <span className={`work-item-status status-${item.status}`}>{item.status}</span>
                         <Button size="small" onClick={() => onAdd(item.id)}>Thêm con</Button>
+                        {isLeaf && onAddTask && (
+                            <Button size="small" style={{ color: "#0958d9" }} onClick={() => onAddTask(item.id)}>
+                                + Việc
+                            </Button>
+                        )}
                         <Button size="small" onClick={() => onEdit(item.id)}>Sửa</Button>
                         <Button size="small" danger onClick={() => onDelete(item)}>Xóa</Button>
                     </>
@@ -47,13 +53,14 @@ function WorkItemNode({ item, items, depth, expanded, editingId, onToggle, onEdi
             {isExpanded && children.map((child) => (
                 <WorkItemNode key={child.id} item={child} items={items} depth={depth + 1}
                     expanded={expanded} editingId={editingId} onToggle={onToggle} onEdit={onEdit}
-                    onSave={onSave} onCancel={onCancel} onDelete={onDelete} onAdd={onAdd} />
+                    onSave={onSave} onCancel={onCancel} onDelete={onDelete} onAdd={onAdd}
+                    onAddTask={onAddTask} />
             ))}
         </div>
     );
 }
 
-export default function WorkItemTree({ items, onSave, onDelete, onAdd }) {
+export default function WorkItemTree({ items, onSave, onDelete, onAdd, onAddTask }) {
     const initialExpanded = new Set(items.filter((item) => item.depth < 2).map((item) => item.id));
     const [expanded, setExpanded] = useState(initialExpanded);
     const [editingId, setEditingId] = useState(null);
@@ -70,7 +77,8 @@ export default function WorkItemTree({ items, onSave, onDelete, onAdd }) {
                 <WorkItemNode key={item.id} item={item} items={items} depth={0}
                     expanded={expanded} editingId={editingId} onToggle={toggle}
                     onEdit={setEditingId} onSave={(id, values) => { setEditingId(null); onSave(id, values); }}
-                    onCancel={() => setEditingId(null)} onDelete={onDelete} onAdd={onAdd} />
+                    onCancel={() => setEditingId(null)} onDelete={onDelete} onAdd={onAdd}
+                    onAddTask={onAddTask} />
             ))}
         </div>
     );
