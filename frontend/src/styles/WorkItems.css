@@ -62,3 +62,33 @@
     .work-item-row { flex-wrap: wrap; }
     .work-item-title { min-width: 120px; }
 }
+
+.tasks-section {
+    margin-top: 36px;
+    padding-top: 24px;
+    border-top: 2px solid #d9e2e5;
+}
+
+.tasks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.tasks-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1b4d58;
+}
+
+.duration-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #e6f4ff;
+    color: #0958d9;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+}

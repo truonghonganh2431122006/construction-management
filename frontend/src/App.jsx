@@ -42,6 +42,11 @@ function App() {
                     element={<WorkItems />}
                 />
 
+                <Route
+                    path="/tasks"
+                    element={<WorkItems />}
+                />
+
 
             </Routes>
 
