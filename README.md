@@ -2,6 +2,8 @@
 
 Hệ thống quản lý xây dựng.
 
+Sprint 2 T-11–T-17: xem [audit, API, cách kiểm thử và kết quả](docs/sprint-2-result.md).
+
 ## Công nghệ sử dụng
 
 ### Backend

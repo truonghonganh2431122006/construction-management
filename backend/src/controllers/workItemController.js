@@ -85,6 +85,9 @@ function createWorkItemController({ model }) {
                     ? res.status(204).end()
                     : res.status(404).json({ message: "Không tìm thấy hạng mục" });
             } catch (error) {
+                if (error.code === "23503" && error.constraint === "tasks_work_item_id_fkey") {
+                    return res.status(409).json({ message: "Không thể xóa hạng mục đang có công việc" });
+                }
                 return next(error);
             }
         }
