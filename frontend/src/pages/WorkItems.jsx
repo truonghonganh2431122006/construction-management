@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Alert, Button, Card, Form, Input, message, Spin } from "antd";
 import { useSearchParams } from "react-router-dom";
 import WorkItemTree from "../components/WorkItemTree";
+import TaskForm from "../components/TaskForm";
+import { listTasks, listDependencies, saveTask } from "../services/taskApi";
 import { createWorkItem, deleteWorkItem, listWorkItems, updateWorkItem } from "../services/workItemApi";
 import "../styles/WorkItems.css";
 
@@ -9,6 +11,9 @@ export default function WorkItems() {
     const [searchParams] = useSearchParams();
     const projectId = Number(searchParams.get("projectId") || 1);
     const [items, setItems] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [dependencies, setDependencies] = useState([]);
+    const [taskEditor, setTaskEditor] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [parentId, setParentId] = useState(null);
@@ -16,10 +21,13 @@ export default function WorkItems() {
 
     useEffect(() => {
         let active = true;
-        listWorkItems(projectId)
-            .then((nextItems) => {
+        Promise.all([listWorkItems(projectId), listTasks(projectId), listDependencies(projectId)])
+            .then(([nextItems, nextTasks, nextDependencies]) => {
                 if (active) {
                     setItems(nextItems);
+                    setTasks(nextTasks);
+                    setDependencies(nextDependencies);
+                    setTaskEditor(null);
                     setError("");
                 }
             })
@@ -56,6 +64,15 @@ export default function WorkItems() {
         }
     };
 
+    const persistTask = async (taskId, values) => {
+        const saved = await saveTask(projectId, taskId, values);
+        setTasks((current) => taskId
+            ? current.map((entry) => entry.id === saved.id ? saved : entry)
+            : [...current, saved]);
+        setTaskEditor(saved);
+        message.success("Đã lưu công việc");
+    };
+
     return (
         <main className="work-items-page">
             <Card className="work-items-panel" title="Cây hạng mục">
@@ -69,8 +86,15 @@ export default function WorkItems() {
                     <Button htmlType="submit">Tạo</Button>
                 </Form>
                 {error && <Alert type="error" message={error} />}
-                {loading ? <Spin /> : <WorkItemTree items={items} onSave={save} onDelete={remove}
+                {loading ? <Spin /> : <WorkItemTree items={items} tasks={tasks}
+                    onAddTask={(work_item_id) => setTaskEditor({ work_item_id })} onEditTask={setTaskEditor}
+                    onSave={save} onDelete={remove}
                     onAdd={(id) => setParentId(id)} />}
+                {taskEditor && <TaskForm key={`${projectId}-${taskEditor.id || "new"}`} projectId={projectId}
+                    task={taskEditor} items={items} tasks={tasks} dependencies={dependencies}
+                    onSave={persistTask} onClose={() => setTaskEditor(null)}
+                    onDependencyAdded={(dependency) => setDependencies((current) => [...current, dependency])}
+                    onDependencyRemoved={(id) => setDependencies((current) => current.filter((entry) => entry.id !== id))} />}
             </Card>
         </main>
     );

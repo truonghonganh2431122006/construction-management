@@ -1,4 +1,31 @@
 function createWorkItemCrudModel(pool) {
+    async function withParent(projectId, parentId, operation) {
+        if (parentId == null) return operation(pool);
+        const client = await pool.connect();
+        try {
+            await client.query("BEGIN");
+            const parent = await client.query(
+                "SELECT id FROM work_items WHERE project_id = $1 AND id = $2 FOR UPDATE",
+                [projectId, parentId]
+            );
+            if (!parent.rowCount) {
+                throw Object.assign(new Error("Không tìm thấy hạng mục cha trong dự án"), { status: 400, expose: true });
+            }
+            const tasks = await client.query("SELECT 1 FROM tasks WHERE work_item_id = $1 LIMIT 1", [parentId]);
+            if (tasks.rowCount) {
+                throw Object.assign(new Error("Hạng mục đã có công việc, không thể thêm hạng mục con"), { status: 409, expose: true });
+            }
+            const result = await operation(client);
+            await client.query("COMMIT");
+            return result;
+        } catch (error) {
+            await client.query("ROLLBACK");
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
     return {
         async findTree(projectId) {
             const { rows } = await pool.query(`
@@ -28,16 +55,16 @@ function createWorkItemCrudModel(pool) {
         },
 
         async create({ projectId, parentId, title, description, status }) {
-            const { rows } = await pool.query(`
+            const { rows } = await withParent(projectId, parentId, (client) => client.query(`
                 INSERT INTO work_items (project_id, parent_id, title, description, status)
                 VALUES ($1, $2, $3, $4, $5)
                 RETURNING *
-            `, [projectId, parentId || null, title, description || null, status || "todo"]);
+            `, [projectId, parentId || null, title, description || null, status || "todo"]));
             return rows[0];
         },
 
         async update({ projectId, itemId, parentId, title, description, status }) {
-            const { rows } = await pool.query(`
+            const { rows } = await withParent(projectId, parentId, (client) => client.query(`
                 UPDATE work_items
                 SET parent_id = $3,
                     title = $4,
@@ -46,7 +73,7 @@ function createWorkItemCrudModel(pool) {
                     updated_at = CURRENT_TIMESTAMP
                 WHERE project_id = $1 AND id = $2
                 RETURNING *
-            `, [projectId, itemId, parentId || null, title, description || null, status || "todo"]);
+            `, [projectId, itemId, parentId || null, title, description || null, status || "todo"]));
             return rows[0] || null;
         },
 
