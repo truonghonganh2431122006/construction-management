@@ -12,6 +12,8 @@ const {
     calculateSlackAndCriticalPath,
     calculateScheduleCPM
 } = require("../src/services/cpmService");
+const { buildGraph, topologicalSort } = require("../src/services/scheduleService");
+const scenarios = require("./data/cpm-scenarios.json");
 
 describe("S-08 & S-09 CPM Calculation Algorithm", () => {
     describe("Task T-18 (S-08): Công thức duyệt xuôi viết tách riêng cho từng loại quan hệ", () => {
@@ -196,58 +198,18 @@ describe("S-08 & S-09 CPM Calculation Algorithm", () => {
         });
     });
 
-    describe("Kịch bản kiểm thử mẫu K-01 (Đáp án chuẩn mạng tiến độ)", () => {
-        /**
-         * Kịch bản mẫu K-01:
-         * Công việc:
-         * - A: Duration = 3, Pred = []
-         * - B: Duration = 4, Pred = [A:FS]
-         * - C: Duration = 2, Pred = [A:FS]
-         * - D: Duration = 5, Pred = [B:FS]
-         * - E: Duration = 6, Pred = [C:FS]
-         * - F: Duration = 3, Pred = [D:FS, E:FS]
-         * 
-         * Bảng đáp án:
-         * Task | Dur | ES | EF | LS | LF | Slack | isCritical
-         * A    |  3  |  0 |  3 |  0 |  3 |   0   | true
-         * B    |  4  |  3 |  7 |  3 |  7 |   0   | true
-         * C    |  2  |  3 |  5 |  4 |  6 |   1   | false
-         * D    |  5  |  7 | 12 |  7 | 12 |   0   | true
-         * E    |  6  |  5 | 11 |  6 | 12 |   1   | false
-         * F    |  3  | 12 | 15 | 12 | 15 |   0   | true
-         * 
-         * Đường găng duy nhất: A -> B -> D -> F (Tổng thời gian: 15 ngày)
-         */
-        test("khớp hoàn toàn với bảng đáp án kịch bản mẫu K-01", () => {
-            const scenarioK01 = [
-                { id: "A", duration: 3, dependencies: [] },
-                { id: "B", duration: 4, dependencies: [{ predecessorId: "A", type: "FS", lag: 0 }] },
-                { id: "C", duration: 2, dependencies: [{ predecessorId: "A", type: "FS", lag: 0 }] },
-                { id: "D", duration: 5, dependencies: [{ predecessorId: "B", type: "FS", lag: 0 }] },
-                { id: "E", duration: 6, dependencies: [{ predecessorId: "C", type: "FS", lag: 0 }] },
-                {
-                    id: "F",
-                    duration: 3,
-                    dependencies: [
-                        { predecessorId: "D", type: "FS", lag: 0 },
-                        { predecessorId: "E", type: "FS", lag: 0 }
-                    ]
-                }
-            ];
-
-            const result = calculateScheduleCPM(scenarioK01);
-
-            // Kiểm tra từng công việc theo đúng bảng đáp án chuẩn K-01
-            const expectedAnswers = [
-                { id: "A", duration: 3, es: 0, ef: 3, ls: 0, lf: 3, slack: 0, isCritical: true },
-                { id: "B", duration: 4, es: 3, ef: 7, ls: 3, lf: 7, slack: 0, isCritical: true },
-                { id: "C", duration: 2, es: 3, ef: 5, ls: 4, lf: 6, slack: 1, isCritical: false },
-                { id: "D", duration: 5, es: 7, ef: 12, ls: 7, lf: 12, slack: 0, isCritical: true },
-                { id: "E", duration: 6, es: 5, ef: 11, ls: 6, lf: 12, slack: 1, isCritical: false },
-                { id: "F", duration: 3, es: 12, ef: 15, ls: 12, lf: 15, slack: 0, isCritical: true }
-            ];
-
-            for (const expected of expectedAnswers) {
+    describe("T-22/T-23: đáp án tính tay từ file dữ liệu", () => {
+        test.each(scenarios)("$id: $name", (scenario) => {
+            expect(scenario.calculated_by).toEqual(expect.any(String));
+            expect(scenario.calculated_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+            expect(scenario.manual_calculation.length).toBeGreaterThan(0);
+            const graph = buildGraph(scenario.tasks, scenario.dependencies);
+            const { hasCycle, sortedTasks } = topologicalSort(graph);
+            expect(hasCycle).toBe(false);
+            const result = calculateScheduleCPM(sortedTasks);
+            expect(result.size).toBe(scenario.tasks.length);
+            expect(new Set(scenario.expected.map((task) => task.id))).toEqual(new Set(result.keys()));
+            for (const expected of scenario.expected) {
                 const actual = result.get(expected.id);
                 expect(actual).toBeDefined();
                 expect(actual.es).toBe(expected.es);
@@ -257,6 +219,19 @@ describe("S-08 & S-09 CPM Calculation Algorithm", () => {
                 expect(actual.slack).toBe(expected.slack);
                 expect(actual.isCritical).toBe(expected.isCritical);
             }
+        });
+
+        test("hai mạng mới giữ đủ loại/lag âm và chênh lệch ba ngày", () => {
+            const mixed = scenarios.find((scenario) => scenario.id === "K-02");
+            expect(mixed.tasks.length).toBeGreaterThanOrEqual(6);
+            expect(mixed.tasks.length).toBeLessThanOrEqual(8);
+            expect(new Set(mixed.dependencies.map((edge) => edge.dependency_type))).toEqual(new Set(["FS", "SS", "FF", "SF"]));
+            expect(mixed.dependencies.some((edge) => edge.lag_days < 0)).toBe(true);
+            const parallel = scenarios.find((scenario) => scenario.id === "K-03");
+            const result = calculateScheduleCPM(topologicalSort(buildGraph(parallel.tasks, parallel.dependencies)).sortedTasks);
+            expect(result.get("B").ef - result.get("D").ef).toBe(3);
+            expect(result.get("C").slack).toBe(3);
+            expect(result.get("D").slack).toBe(3);
         });
     });
 });

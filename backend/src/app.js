@@ -7,6 +7,7 @@ const { createAuthRoutes } = require("./routes/authRoutes");
 const { createProjectRoutes } = require("./routes/projectRoutes");
 const { createWorkItemRoutes } = require("./routes/workItemRoutes");
 const { createTaskRoutes } = require("./routes/taskRoutes");
+const { createScheduleRoutes } = require("./routes/scheduleRoutes");
 const corsMiddleware = require("./middleware/cors");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -28,6 +29,7 @@ function createApp({ authService, sessionStore, sessionSecret, secureCookies, tr
     app.use("/projects", createProjectRoutes());
     app.use("/projects", createWorkItemRoutes());
     app.use("/projects", createTaskRoutes());
+    app.use("/projects", createScheduleRoutes());
     app.use(errorHandler);
     return app;
 }

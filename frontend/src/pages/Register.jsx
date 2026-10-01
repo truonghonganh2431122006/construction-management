@@ -175,7 +175,7 @@ async function registerAccount(payload) {
     body: JSON.stringify(payload),
   });
 
-  let data = null;
+  let data;
   try {
     data = await res.json();
   } catch {

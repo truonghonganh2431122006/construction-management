@@ -1,5 +1,10 @@
+const { withProjectTransaction } = require("./projectTransaction");
+
 function createTaskModel(pool) {
     return {
+        withProjectTransaction(projectId, operation) {
+            return withProjectTransaction(pool, projectId, (client) => operation(createTaskModel(client)));
+        },
         async list(projectId) {
             const { rows } = await pool.query(`
                 SELECT t.* FROM tasks t
@@ -19,9 +24,7 @@ function createTaskModel(pool) {
         },
 
         async save(projectId, taskId, { work_item_id, name, duration_days }) {
-            const client = await pool.connect();
-            try {
-                await client.query("BEGIN");
+            return withProjectTransaction(pool, projectId, async (client) => {
                 // Child creation/reparenting takes the same lock before checking tasks.
                 const item = await client.query(`
                     SELECT id FROM work_items WHERE project_id = $1 AND id = $2 FOR UPDATE
@@ -44,14 +47,8 @@ function createTaskModel(pool) {
                         WHERE t.id = $4 AND w.id = t.work_item_id AND w.project_id = $5
                         RETURNING t.*
                     `, [work_item_id, name, duration_days, taskId, projectId]);
-                await client.query("COMMIT");
                 return result.rows[0] || null;
-            } catch (error) {
-                await client.query("ROLLBACK");
-                throw error;
-            } finally {
-                client.release();
-            }
+            });
         },
 
         async listDependencies(projectId) {

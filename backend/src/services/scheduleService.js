@@ -1,4 +1,5 @@
 const { createTaskModel } = require("../models/taskModel");
+const { calculateScheduleCPM } = require("./cpmService");
 
 // Normalize database rows into the existing CPM task/dependency interface.
 // All structures and records are new: callers retain ownership of their input.
@@ -112,12 +113,71 @@ function topologicalSort(graph) {
     };
 }
 
-async function loadProjectGraph(pool, projectId) {
-    const model = createTaskModel(pool);
+async function loadProjectGraph(source, projectId) {
+    const model = typeof source.query === "function" ? createTaskModel(source) : source;
     // Exactly two SELECTs, independent of task count; no per-task queries.
     const tasks = await model.list(projectId);
     const dependencies = await model.listDependencies(projectId);
     return buildGraph(tasks, dependencies);
 }
 
-module.exports = { buildGraph, topologicalSort, loadProjectGraph };
+// Find an actual closed walk in reverse ("waits for") order. An SCC's array
+// order alone is not a valid path, especially with multiple separate cycles.
+function createCycleError(graph, cycleTasks, preferredStart) {
+    const allowed = new Set(cycleTasks);
+    const visited = new Set();
+    const starts = allowed.has(preferredStart)
+        ? [preferredStart, ...cycleTasks.filter((id) => id !== preferredStart)] : cycleTasks;
+    let cycleIds = [];
+    for (const start of starts) {
+        if (visited.has(start)) continue;
+        const positions = new Map([[start, 0]]);
+        const stack = [{ id: start, next: 0 }];
+        visited.add(start);
+        while (stack.length && cycleIds.length === 0) {
+            const frame = stack[stack.length - 1];
+            const predecessors = graph.reverseAdjacency.get(frame.id);
+            if (frame.next === predecessors.length) {
+                positions.delete(frame.id);
+                stack.pop();
+                continue;
+            }
+            const next = predecessors[frame.next++];
+            if (!allowed.has(next)) continue;
+            if (positions.has(next)) {
+                cycleIds = stack.slice(positions.get(next)).map((entry) => entry.id);
+            } else if (!visited.has(next)) {
+                visited.add(next);
+                positions.set(next, stack.length);
+                stack.push({ id: next, next: 0 });
+            }
+        }
+        if (cycleIds.length) break;
+    }
+    const cycle = cycleIds.map((id) => ({ id, name: graph.tasks.get(id).name }));
+    const message = "Phát hiện vòng phụ thuộc: " + cycle.map((task, index) => {
+        const next = cycle[(index + 1) % cycle.length];
+        return `Công việc "${task.name}" ${index === cycle.length - 1 ? "lại chờ" : "chờ"} "${next.name}"`;
+    }).join(", ") + ".";
+    return Object.assign(new Error(message), { status: 422, expose: true, cycle });
+}
+
+function createScheduleService({ model }) {
+    return {
+        async getSchedule(projectId, { criticalOnly = false } = {}) {
+            return model.withProjectTransaction(projectId, async (transaction, project) => {
+                if (project.schedule_needs_recalc) {
+                    const graph = await loadProjectGraph(transaction.tasks, projectId);
+                    const sorted = topologicalSort(graph);
+                    if (sorted.hasCycle) throw createCycleError(graph, sorted.cycleTasks);
+                    // The existing CPM engine requires at least one task.
+                    const results = sorted.sortedTasks.length ? calculateScheduleCPM(sorted.sortedTasks) : new Map();
+                    await transaction.replaceResults(projectId, [...results.values()]);
+                }
+                return transaction.listResults(projectId, criticalOnly);
+            });
+        }
+    };
+}
+
+module.exports = { buildGraph, topologicalSort, loadProjectGraph, createCycleError, createScheduleService };

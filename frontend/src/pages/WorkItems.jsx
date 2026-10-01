@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Alert, Button, Card, Form, Input, message, Spin } from "antd";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import WorkItemTree from "../components/WorkItemTree";
 import TaskForm from "../components/TaskForm";
 import { listTasks, listDependencies, saveTask } from "../services/taskApi";
@@ -77,6 +77,7 @@ export default function WorkItems() {
         <main className="work-items-page">
             <Card className="work-items-panel" title="Cây hạng mục">
                 <p className="work-items-meta">Dự án #{projectId}</p>
+                <p className="work-items-meta"><Link to={`/schedule?projectId=${projectId}`}>Xem tiến độ công việc</Link></p>
                 <Button type="primary" onClick={() => setParentId(null)}>Thêm hạng mục gốc</Button>
                 {parentId !== null && <span className="work-items-meta">Đang thêm hạng mục con</span>}
                 <Form form={form} layout="inline" onFinish={(values) => save(null, values)}>
