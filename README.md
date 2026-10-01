@@ -4,6 +4,8 @@ Hệ thống quản lý xây dựng.
 
 Sprint 2 T-11–T-17: xem [audit, API, cách kiểm thử và kết quả](docs/sprint-2-result.md).
 
+Sprint 2 T-22–T-28: xem [dữ liệu CPM, chống vòng, cache và trang tiến độ](docs/sprint-2-t22-t28.md).
+
 ## Công nghệ sử dụng
 
 ### Backend

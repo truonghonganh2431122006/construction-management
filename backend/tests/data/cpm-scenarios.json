@@ -1,0 +1,115 @@
+[
+  {
+    "id": "K-01",
+    "name": "Mạng mẫu K-01: một đường găng, hai nhánh hội tụ",
+    "calculated_by": "Codex (đối chiếu tính tay từ đáp án K-01 có sẵn; tác giả gốc chưa được ghi)",
+    "calculated_on": "2026-10-01",
+    "time_basis": "Ngày tương đối từ mốc 0; EF = ES + duration_days",
+    "manual_calculation": [
+      "Xuôi: A=0..3; B=3..7; C=3..5; D=7..12; E=5..11; F=max(12,11)..15.",
+      "Ngược: F=12..15; D=7..12; E=6..12; B=3..7; C=4..6; A=0..min(3,4)=3.",
+      "Slack=LS-ES; A-B-D-F găng, C và E có slack 1."
+    ],
+    "tasks": [
+      {"id":"A","name":"A","duration_days":3},
+      {"id":"B","name":"B","duration_days":4},
+      {"id":"C","name":"C","duration_days":2},
+      {"id":"D","name":"D","duration_days":5},
+      {"id":"E","name":"E","duration_days":6},
+      {"id":"F","name":"F","duration_days":3}
+    ],
+    "dependencies": [
+      {"predecessor_task_id":"A","successor_task_id":"B","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"A","successor_task_id":"C","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"B","successor_task_id":"D","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"C","successor_task_id":"E","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"D","successor_task_id":"F","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"E","successor_task_id":"F","dependency_type":"FS","lag_days":0}
+    ],
+    "expected": [
+      {"id":"A","es":0,"ef":3,"ls":0,"lf":3,"slack":0,"isCritical":true},
+      {"id":"B","es":3,"ef":7,"ls":3,"lf":7,"slack":0,"isCritical":true},
+      {"id":"C","es":3,"ef":5,"ls":4,"lf":6,"slack":1,"isCritical":false},
+      {"id":"D","es":7,"ef":12,"ls":7,"lf":12,"slack":0,"isCritical":true},
+      {"id":"E","es":5,"ef":11,"ls":6,"lf":12,"slack":1,"isCritical":false},
+      {"id":"F","es":12,"ef":15,"ls":12,"lf":15,"slack":0,"isCritical":true}
+    ]
+  },
+  {
+    "id": "K-02",
+    "name": "Bảy công việc, đủ FS/SS/FF/SF và lag âm",
+    "calculated_by": "Codex (tính tay bằng công thức xuôi/ngược, không sinh đáp án từ engine)",
+    "calculated_on": "2026-10-01",
+    "time_basis": "Ngày tương đối từ mốc 0; EF = ES + duration_days",
+    "manual_calculation": [
+      "Xuôi: A=0..4; B=4..10 (FS); C=1..4 (SS+1).",
+      "D: ES=EF(B)-1-2=7, EF=9 (FF-1). E: ES=ES(C)+4-2=3, EF=5 (SF+4).",
+      "F: ES=max(EF(D),EF(E))=9, EF=12. G: ES=max(EF(B),EF(F))=12, EF=13.",
+      "Ngược: G=12..13; F=9..12; D=7..9; E=7..9.",
+      "B: LF=min(LF(D)+1,LS(G))=min(10,12)=10, LS=4.",
+      "C: LS=LF(E)-4=5, LF=8. A: LF=min(LS(B),LS(C)-1+4)=min(4,8)=4, LS=0.",
+      "Slack của C,E là 4; A,B,D,F,G có slack 0."
+    ],
+    "tasks": [
+      {"id":"A","name":"Chuẩn bị","duration_days":4},
+      {"id":"B","name":"Thi công móng","duration_days":6},
+      {"id":"C","name":"Chuẩn bị vật tư","duration_days":3},
+      {"id":"D","name":"Kiểm tra móng","duration_days":2},
+      {"id":"E","name":"Bàn giao vật tư","duration_days":2},
+      {"id":"F","name":"Lắp dựng","duration_days":3},
+      {"id":"G","name":"Nghiệm thu","duration_days":1}
+    ],
+    "dependencies": [
+      {"predecessor_task_id":"A","successor_task_id":"B","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"A","successor_task_id":"C","dependency_type":"SS","lag_days":1},
+      {"predecessor_task_id":"B","successor_task_id":"D","dependency_type":"FF","lag_days":-1},
+      {"predecessor_task_id":"C","successor_task_id":"E","dependency_type":"SF","lag_days":4},
+      {"predecessor_task_id":"D","successor_task_id":"F","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"E","successor_task_id":"F","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"B","successor_task_id":"G","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"F","successor_task_id":"G","dependency_type":"FS","lag_days":0}
+    ],
+    "expected": [
+      {"id":"A","es":0,"ef":4,"ls":0,"lf":4,"slack":0,"isCritical":true},
+      {"id":"B","es":4,"ef":10,"ls":4,"lf":10,"slack":0,"isCritical":true},
+      {"id":"C","es":1,"ef":4,"ls":5,"lf":8,"slack":4,"isCritical":false},
+      {"id":"D","es":7,"ef":9,"ls":7,"lf":9,"slack":0,"isCritical":true},
+      {"id":"E","es":3,"ef":5,"ls":7,"lf":9,"slack":4,"isCritical":false},
+      {"id":"F","es":9,"ef":12,"ls":9,"lf":12,"slack":0,"isCritical":true},
+      {"id":"G","es":12,"ef":13,"ls":12,"lf":13,"slack":0,"isCritical":true}
+    ]
+  },
+  {
+    "id": "K-03",
+    "name": "Hai nhánh song song lệch nhau ba ngày",
+    "calculated_by": "Codex (tính tay bằng công thức xuôi/ngược, không sinh đáp án từ engine)",
+    "calculated_on": "2026-10-01",
+    "time_basis": "Ngày tương đối từ mốc 0; EF = ES + duration_days",
+    "manual_calculation": [
+      "Nhánh A(4)-B(5) dài 9 ngày; nhánh C(2)-D(4) dài 6 ngày; chênh lệch 3 ngày.",
+      "Xuôi: A=0..4; B=4..9; C=0..2; D=2..6; E=max(9,6)..11.",
+      "Ngược: E=9..11; B=4..9; A=0..4; D=5..9; C=3..5.",
+      "C,D có slack 3; A,B,E găng."
+    ],
+    "tasks": [
+      {"id":"A","name":"Nhánh dài - phần 1","duration_days":4},
+      {"id":"B","name":"Nhánh dài - phần 2","duration_days":5},
+      {"id":"C","name":"Nhánh ngắn - phần 1","duration_days":2},
+      {"id":"D","name":"Nhánh ngắn - phần 2","duration_days":4},
+      {"id":"E","name":"Hội tụ","duration_days":2}
+    ],
+    "dependencies": [
+      {"predecessor_task_id":"A","successor_task_id":"B","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"C","successor_task_id":"D","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"B","successor_task_id":"E","dependency_type":"FS","lag_days":0},
+      {"predecessor_task_id":"D","successor_task_id":"E","dependency_type":"FS","lag_days":0}
+    ],
+    "expected": [
+      {"id":"A","es":0,"ef":4,"ls":0,"lf":4,"slack":0,"isCritical":true},
+      {"id":"B","es":4,"ef":9,"ls":4,"lf":9,"slack":0,"isCritical":true},
+      {"id":"C","es":0,"ef":2,"ls":3,"lf":5,"slack":3,"isCritical":false},
+      {"id":"D","es":2,"ef":6,"ls":5,"lf":9,"slack":3,"isCritical":false},
+      {"id":"E","es":9,"ef":11,"ls":9,"lf":11,"slack":0,"isCritical":true}
+    ]
+  }
+]

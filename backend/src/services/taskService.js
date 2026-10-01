@@ -1,3 +1,5 @@
+const { buildGraph, topologicalSort, createCycleError } = require("./scheduleService");
+
 const MAX_INTEGER = 2147483647;
 const TYPES = ["FS", "SS", "FF", "SF"];
 
@@ -69,19 +71,35 @@ function createTaskService({ model }) {
             if (!Number.isInteger(lag_days) || lag_days < -2147483648 || lag_days > MAX_INTEGER) {
                 throw inputError("Độ trễ phải là số nguyên ngày (có thể âm)");
             }
-            const dependency = await translateErrors(() => model.createDependency(projectId, successorId, {
-                predecessor_task_id, dependency_type, lag_days
+            return translateErrors(() => model.withProjectTransaction(projectId, async (transaction) => {
+                const tasks = await transaction.list(projectId);
+                const dependencies = await transaction.listDependencies(projectId);
+                if (!tasks.some((task) => task.id === predecessor_task_id)
+                    || !tasks.some((task) => task.id === successorId)) {
+                    throw inputError("Hai công việc phải tồn tại trong cùng dự án", 404);
+                }
+                if (dependencies.some((edge) => edge.predecessor_task_id === predecessor_task_id
+                    && edge.successor_task_id === successorId)) {
+                    throw inputError("Cặp công việc trước và sau đã có quan hệ phụ thuộc", 409);
+                }
+                const candidate = { predecessor_task_id, successor_task_id: successorId, dependency_type, lag_days };
+                const graph = buildGraph(tasks, [...dependencies, candidate]);
+                const sorted = topologicalSort(graph);
+                if (sorted.hasCycle) throw createCycleError(graph, sorted.cycleTasks, successorId);
+                const dependency = await transaction.createDependency(projectId, successorId, candidate);
+                if (!dependency) throw inputError("Hai công việc phải tồn tại trong cùng dự án", 404);
+                return dependency;
             }));
-            if (!dependency) throw inputError("Hai công việc phải tồn tại trong cùng dự án", 404);
-            return dependency;
         },
 
         async removeDependency(projectId, taskId, dependencyId) {
             validateId(taskId);
             validateId(dependencyId);
-            if (!await model.removeDependency(projectId, taskId, dependencyId)) {
-                throw inputError("Không tìm thấy quan hệ phụ thuộc", 404);
-            }
+            await model.withProjectTransaction(projectId, async (transaction) => {
+                if (!await transaction.removeDependency(projectId, taskId, dependencyId)) {
+                    throw inputError("Không tìm thấy quan hệ phụ thuộc", 404);
+                }
+            });
         }
     };
 }

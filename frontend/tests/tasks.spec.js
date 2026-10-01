@@ -135,3 +135,17 @@ test("T-14 displays duplicate error returned by the API", async ({ page }) => {
     await dialog.getByRole("button", { name: /Thêm quan hệ/ }).click();
     await expect(dialog.getByRole("alert")).toContainText("Cặp công việc trước và sau đã có quan hệ phụ thuộc");
 });
+
+test("T-25 TaskForm shows the backend's named cycle and keeps the dependency list unchanged", async ({ page }) => {
+    const state = await mockProject(page);
+    const cycleMessage = 'Công việc "Đổ bê tông" chờ "Đào móng", "Đào móng" lại chờ "Đổ bê tông"';
+    await page.route("**/projects/1/tasks/1/dependencies", (route) => route.fulfill({
+        status: 422, json: { message: cycleMessage, cycle: [{ id: 1, name: "Đổ bê tông" }, { id: 2, name: "Đào móng" }] }
+    }));
+    const dialog = await openTask(page);
+    await selectPredecessor(page, dialog, "Đào móng");
+    await dialog.getByRole("button", { name: /Thêm quan hệ/ }).click();
+    await expect(dialog.getByRole("alert")).toContainText(cycleMessage);
+    await expect(dialog.getByText("Chưa có quan hệ phụ thuộc.")).toBeVisible();
+    expect(state.dependencies).toHaveLength(0);
+});

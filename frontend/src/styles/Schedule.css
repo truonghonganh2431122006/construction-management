@@ -1,0 +1,22 @@
+.schedule-page {
+    min-height: 100vh;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 40px clamp(16px, 4vw, 64px);
+    background: #eef3f5;
+    color: #1f2937;
+}
+
+.schedule-panel { max-width: 1440px; margin: 0 auto; }
+.schedule-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.schedule-heading h1 { margin: 0 0 8px; font-size: 26px; }
+.schedule-note { margin: 20px 0; color: #52616b; line-height: 1.6; }
+.schedule-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.schedule-loading { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 48px 0; }
+.schedule-critical-row > td { background: #fff7f5; }
+.schedule-page .ant-table-cell { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 700px) {
+    .schedule-page { padding: 20px 12px; }
+    .schedule-heading h1 { font-size: 22px; }
+}

@@ -8,6 +8,10 @@ const { createTaskRoutes } = require("../src/routes/taskRoutes");
 const { createWorkItemCrudModel } = require("../src/models/workItemCrudModel");
 const { createWorkItemRoutes } = require("../src/routes/workItemRoutes");
 const { loadProjectGraph } = require("../src/services/scheduleService");
+const { createScheduleService } = require("../src/services/scheduleService");
+const { createScheduleModel } = require("../src/models/scheduleModel");
+const { createScheduleRoutes } = require("../src/routes/scheduleRoutes");
+const scenarios = require("./data/cpm-scenarios.json");
 const errorHandler = require("../src/middleware/errorHandler");
 
 // Opt in to a real PostgreSQL server. Each run owns an isolated schema;
@@ -53,6 +57,7 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
         app.use(express.json());
         app.use("/projects", createTaskRoutes({ model, memberModel, authorization }));
         app.use("/projects", createWorkItemRoutes({ model: createWorkItemCrudModel(pool), memberModel, authorization }));
+        app.use("/projects", createScheduleRoutes({ model: createScheduleModel(pool), memberModel, authorization }));
         app.use(errorHandler);
     });
 
@@ -123,6 +128,8 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
     });
 
     test("rollback refuses populated tables, then down 010/down 009/up succeeds without changing T-08", async () => {
+        // 011 now depends on tasks; roll it back first, retaining all 009/010 assertions.
+        expect((await migrate("down"))[0]).toContain("011_create_schedule_results.sql");
         const first = await insertTask("First");
         const second = await insertTask("Second");
         await insertDependency(first.id, second.id);
@@ -136,7 +143,7 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
             .toEqual({ tasks: null, dependencies: null });
         expect((await pool.query("SELECT count(*)::int AS count FROM work_items")).rows[0].count).toBe(3);
         expect(await migrate("up")).toEqual([
-            "Applied: 009_create_tasks.sql", "Applied: 010_create_dependencies.sql"
+            "Applied: 009_create_tasks.sql", "Applied: 010_create_dependencies.sql", "Applied: 011_create_schedule_results.sql"
         ]);
     });
 
@@ -232,5 +239,211 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
         ]);
         expect(results.filter((response) => response.status === 201)).toHaveLength(1);
         expect(results.filter((response) => [400, 409].includes(response.status))).toHaveLength(1);
+    });
+
+    const dirty = async (projectId = project) => (await pool.query(
+        "SELECT schedule_needs_recalc FROM projects WHERE id = $1", [projectId]
+    )).rows[0].schedule_needs_recalc;
+    const storedResults = async () => (await pool.query("SELECT * FROM schedule_results ORDER BY task_id")).rows;
+    const scheduleUrl = () => `/projects/${project}/schedule`;
+
+    test("T-24/T-25 rejects C -> A with named cycle and preserves both dependencies and clean cache", async () => {
+        const a = await insertTask("Đào móng");
+        const b = await insertTask("Lắp thép");
+        const c = await insertTask("Đổ bê tông");
+        await insertDependency(a.id, b.id);
+        await insertDependency(b.id, c.id);
+        await request(app).get(scheduleUrl()).expect(200);
+        const before = await storedResults();
+        const response = await request(app).post(`/projects/${project}/tasks/${a.id}/dependencies`)
+            .send({ predecessor_task_id: c.id, dependency_type: "FS", lag_days: -100 }).expect(422);
+        expect(response.body.cycle).toEqual([
+            { id: a.id, name: a.name }, { id: c.id, name: c.name }, { id: b.id, name: b.name }
+        ]);
+        expect(response.body.message).toContain(`"${a.name}" chờ "${c.name}"`);
+        expect(response.body.message).toContain(`"${c.name}" chờ "${b.name}"`);
+        expect(response.body.message).toContain(`"${b.name}" lại chờ "${a.name}"`);
+        expect((await model.listDependencies(project))).toHaveLength(2);
+        expect(await storedResults()).toEqual(before);
+        expect(await dirty()).toBe(false);
+    });
+
+    test("T-24 serializes two concurrent edges whose combined graph would cycle", async () => {
+        const a = await insertTask("A");
+        const b = await insertTask("B");
+        const c = await insertTask("C");
+        await insertDependency(a.id, b.id);
+        const responses = await Promise.all([
+            request(app).post(`/projects/${project}/tasks/${c.id}/dependencies`)
+                .send({ predecessor_task_id: b.id, dependency_type: "FS" }),
+            request(app).post(`/projects/${project}/tasks/${a.id}/dependencies`)
+                .send({ predecessor_task_id: c.id, dependency_type: "SS" })
+        ]);
+        expect(responses.map((response) => response.status).sort()).toEqual([201, 422]);
+        expect(await model.listDependencies(project)).toHaveLength(2);
+    });
+
+    test.each(scenarios)("T-27 API matches every hand-calculated result for $id and sorts by ES", async (scenario) => {
+        const idMap = new Map();
+        for (const task of scenario.tasks) {
+            idMap.set(task.id, (await insertTask(task.name, items.leaf, task.duration_days)).id);
+        }
+        for (const edge of scenario.dependencies) {
+            await insertDependency(idMap.get(edge.predecessor_task_id), idMap.get(edge.successor_task_id), edge.dependency_type, edge.lag_days);
+        }
+        await insertTask("Outside project", items.other);
+        const response = await request(app).get(scheduleUrl()).expect(200);
+        expect(response.body.schedule).toHaveLength(scenario.tasks.length);
+        for (const expected of scenario.expected) {
+            const task = scenario.tasks.find((entry) => entry.id === expected.id);
+            const actual = response.body.schedule.find((entry) => entry.id === idMap.get(expected.id));
+            expect(actual).toMatchObject({ ...expected, id: idMap.get(expected.id), name: task.name,
+                duration_days: task.duration_days, work_item_id: items.leaf });
+        }
+        const starts = response.body.schedule.map((entry) => entry.es);
+        expect(starts).toEqual([...starts].sort((a, b) => a - b));
+        const critical = await request(app).get(`${scheduleUrl()}?critical=true`).expect(200);
+        expect(critical.body.schedule).toEqual(response.body.schedule.filter((entry) => entry.isCritical));
+        expect(await dirty()).toBe(false);
+        expect(await dirty(otherProject)).toBe(true);
+    });
+
+    test("T-26 clean cache reuses rows without graph reads, CPM or writes", async () => {
+        await insertTask("A");
+        await request(app).get(scheduleUrl()).expect(200);
+        const before = await storedResults();
+        const statements = [];
+        const trackedPool = { connect: async () => {
+            const client = await pool.connect();
+            return { query: (sql, values) => { statements.push(sql); return client.query(sql, values); }, release: () => client.release() };
+        } };
+        const service = createScheduleService({ model: createScheduleModel(trackedPool) });
+        expect(await service.getSchedule(project)).toHaveLength(1);
+        expect(statements.filter((sql) => /SELECT/.test(sql))).toHaveLength(2); // project lock + cached rows
+        expect(statements.some((sql) => /FROM dependencies|SELECT t\.\*|INSERT|DELETE|UPDATE projects/.test(sql))).toBe(false);
+        expect(await storedResults()).toEqual(before);
+    });
+
+    test("T-26 task create/update and dependency create/delete mark dirty and recalculate", async () => {
+        await request(app).get(scheduleUrl()).expect(200);
+        expect(await dirty()).toBe(false);
+        const a = (await request(app).post(`/projects/${project}/tasks`)
+            .send({ name: "A", work_item_id: items.leaf, duration_days: 3 }).expect(201)).body.task;
+        expect(await dirty()).toBe(true);
+        expect((await request(app).get(scheduleUrl()).expect(200)).body.schedule[0].ef).toBe(3);
+        await request(app).patch(`/projects/${project}/tasks/${a.id}`).send({ name: "A updated", duration_days: 5 }).expect(200);
+        expect(await dirty()).toBe(true);
+        const afterUpdate = (await request(app).get(scheduleUrl()).expect(200)).body.schedule;
+        expect(afterUpdate[0]).toMatchObject({ name: "A updated", ef: 5 });
+        const b = await insertTask("B", items.leaf, 2);
+        await request(app).get(scheduleUrl()).expect(200);
+        const edge = (await request(app).post(`/projects/${project}/tasks/${b.id}/dependencies`)
+            .send({ predecessor_task_id: a.id, dependency_type: "FS" }).expect(201)).body.dependency;
+        expect(await dirty()).toBe(true);
+        const linked = (await request(app).get(scheduleUrl()).expect(200)).body.schedule;
+        expect(linked.find((task) => task.id === b.id).es).toBe(5);
+        await request(app).delete(`/projects/${project}/tasks/${b.id}/dependencies/${edge.id}`).expect(204);
+        expect(await dirty()).toBe(true);
+        const unlinked = (await request(app).get(scheduleUrl()).expect(200)).body.schedule;
+        expect(unlinked.find((task) => task.id === b.id)).toMatchObject({ es: 0, slack: 3, isCritical: false });
+        expect(await dirty()).toBe(false);
+    });
+
+    test("T-26 failed bulk write rolls back the entire cache and leaves project dirty", async () => {
+        const task = await insertTask("A");
+        await request(app).get(scheduleUrl()).expect(200);
+        const before = await storedResults();
+        await pool.query("UPDATE tasks SET duration_days = 6 WHERE id = $1", [task.id]);
+        const failingPool = { connect: async () => {
+            const client = await pool.connect();
+            return {
+                query: (sql, values) => /INSERT INTO schedule_results/.test(sql)
+                    ? Promise.reject(new Error("Injected bulk write failure")) : client.query(sql, values),
+                release: () => client.release()
+            };
+        } };
+        await expect(createScheduleService({ model: createScheduleModel(failingPool) }).getSchedule(project))
+            .rejects.toThrow("Injected bulk write failure");
+        expect(await storedResults()).toEqual(before);
+        expect(await dirty()).toBe(true);
+        expect((await request(app).get(scheduleUrl()).expect(200)).body.schedule[0].ef).toBe(6);
+    });
+
+    test("T-26 concurrent GETs calculate once; task write during calculation is not lost", async () => {
+        const task = await insertTask("A");
+        let inserts = 0;
+        const trackedPool = { connect: async () => {
+            const client = await pool.connect();
+            return { query: (sql, values) => {
+                if (/INSERT INTO schedule_results/.test(sql)) inserts++;
+                return client.query(sql, values);
+            }, release: () => client.release() };
+        } };
+        const service = createScheduleService({ model: createScheduleModel(trackedPool) });
+        const [first, second] = await Promise.all([service.getSchedule(project), service.getSchedule(project)]);
+        expect(inserts).toBe(1);
+        expect(first).toEqual(second);
+        await Promise.all([
+            service.getSchedule(project),
+            request(app).patch(`/projects/${project}/tasks/${task.id}`).send({ duration_days: 7 }).expect(200)
+        ]);
+        expect((await service.getSchedule(project))[0].ef).toBe(7);
+        expect(await dirty()).toBe(false);
+    });
+
+    test("T-27 dirty cycle returns 422 with names without replacing existing results", async () => {
+        const a = await insertTask("Móng");
+        const b = await insertTask("Tường");
+        const tail = await insertTask("Hoàn thiện");
+        await insertDependency(a.id, b.id);
+        await insertDependency(b.id, tail.id);
+        await request(app).get(scheduleUrl()).expect(200);
+        const before = await storedResults();
+        // Simulate a legacy/imported cycle that bypassed the HTTP guard.
+        await insertDependency(b.id, a.id);
+        const response = await request(app).get(scheduleUrl()).expect(422);
+        expect(new Set(response.body.cycle.map((task) => task.name))).toEqual(new Set([a.name, b.name]));
+        expect(response.body.message).not.toContain(tail.name);
+        expect(await storedResults()).toEqual(before);
+        expect(await dirty()).toBe(true);
+    });
+
+    test("T-27 empty project, query validation, authentication and membership", async () => {
+        await request(app).get(scheduleUrl()).expect(200, { schedule: [] });
+        expect(await dirty()).toBe(false);
+        await request(app).get(`${scheduleUrl()}?critical=true`).expect(200, { schedule: [] });
+        await request(app).get(`${scheduleUrl()}?critical=invalid`).expect(400);
+        await request(app).get(scheduleUrl()).set("x-test-auth", "none").expect(401);
+        member = null;
+        await request(app).get(scheduleUrl()).expect(403);
+        member = { role: "viewer" };
+        await request(app).get(scheduleUrl()).expect(403);
+    });
+
+    test("011 schema enforces one result per task, FK, down protection and re-up", async () => {
+        const task = await insertTask("A");
+        await request(app).get(scheduleUrl()).expect(200);
+        const duplicate = (id) => pool.query(`
+            INSERT INTO schedule_results (task_id, early_start, early_finish, late_start, late_finish, total_float, is_critical)
+            VALUES ($1, 0, 1, 0, 1, 0, TRUE)
+        `, [id]);
+        await expect(duplicate(task.id)).rejects.toMatchObject({ code: "23505" });
+        await expect(duplicate(2147483647)).rejects.toMatchObject({ code: "23503" });
+        await expect(migrate("down")).rejects.toThrow(/schedule_results contain data/);
+        await pool.query("DELETE FROM schedule_results");
+        expect((await migrate("down"))[0]).toContain("011_create_schedule_results.sql");
+        expect((await pool.query("SELECT to_regclass('schedule_results') AS name")).rows[0].name).toBeNull();
+        expect(await model.list(project)).toHaveLength(1);
+        expect(await migrate("up")).toEqual(["Applied: 011_create_schedule_results.sql"]);
+        expect(await dirty()).toBe(true);
+        await request(app).get(scheduleUrl()).expect(200);
+    });
+
+    test("schedule stores cumulative day offsets larger than PostgreSQL INTEGER", async () => {
+        const first = await insertTask("Long", items.leaf, 2147483647);
+        const second = await insertTask("Next", items.leaf, 2);
+        await insertDependency(first.id, second.id);
+        const response = await request(app).get(scheduleUrl()).expect(200);
+        expect(response.body.schedule.find((task) => task.id === second.id).ef).toBe(2147483649);
     });
 });

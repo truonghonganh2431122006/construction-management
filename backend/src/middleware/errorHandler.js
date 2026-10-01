@@ -1,8 +1,11 @@
 function errorHandler(error, req, res, next) {
     if (res.headersSent) return next(error);
 
-    if (error.expose && [400, 403, 404, 409].includes(error.status)) {
-        return res.status(error.status).json({ message: error.message });
+    if (error.expose && [400, 403, 404, 409, 422].includes(error.status)) {
+        return res.status(error.status).json({
+            message: error.message,
+            ...(error.status === 422 && Array.isArray(error.cycle) ? { cycle: error.cycle } : {})
+        });
     }
 
     if (error.type === "entity.parse.failed") {
