@@ -162,22 +162,25 @@ function createCycleError(graph, cycleTasks, preferredStart) {
     return Object.assign(new Error(message), { status: 422, expose: true, cycle });
 }
 
+async function ensureProjectSchedule(transaction, project, projectId) {
+    if (project.schedule_needs_recalc) {
+        const graph = await loadProjectGraph(transaction.tasks, projectId);
+        const sorted = topologicalSort(graph);
+        if (sorted.hasCycle) throw createCycleError(graph, sorted.cycleTasks);
+        const results = sorted.sortedTasks.length ? calculateScheduleCPM(sorted.sortedTasks) : new Map();
+        await transaction.replaceResults(projectId, [...results.values()]);
+    }
+}
+
 function createScheduleService({ model }) {
     return {
         async getSchedule(projectId, { criticalOnly = false } = {}) {
             return model.withProjectTransaction(projectId, async (transaction, project) => {
-                if (project.schedule_needs_recalc) {
-                    const graph = await loadProjectGraph(transaction.tasks, projectId);
-                    const sorted = topologicalSort(graph);
-                    if (sorted.hasCycle) throw createCycleError(graph, sorted.cycleTasks);
-                    // The existing CPM engine requires at least one task.
-                    const results = sorted.sortedTasks.length ? calculateScheduleCPM(sorted.sortedTasks) : new Map();
-                    await transaction.replaceResults(projectId, [...results.values()]);
-                }
+                await ensureProjectSchedule(transaction, project, projectId);
                 return transaction.listResults(projectId, criticalOnly);
             });
         }
     };
 }
 
-module.exports = { buildGraph, topologicalSort, loadProjectGraph, createCycleError, createScheduleService };
+module.exports = { buildGraph, topologicalSort, loadProjectGraph, createCycleError, createScheduleService, ensureProjectSchedule };

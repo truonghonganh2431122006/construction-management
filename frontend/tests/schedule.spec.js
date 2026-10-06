@@ -17,6 +17,9 @@ test("T-28 renders all CPM fields, relative Vietnamese days and critical-only fi
     await page.goto("/schedule?projectId=37");
     await expect(page.getByRole("heading", { name: "Tiến độ công việc" })).toBeVisible();
     await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.locator(".gantt-row")).toHaveCount(3);
+    await expect(page.locator(".gantt-row.is-critical")).toHaveCount(2);
+    await expect(page.locator(".gantt-row").filter({hasText:"Đổ bê tông"}).locator(".gantt-bar")).toHaveAttribute("title", /ES 4, EF 9, LS 4, LF 9/);
     for (const title of ["Tên công việc", "Thời lượng", "Khởi sớm (ES)", "Kết sớm (EF)", "Khởi muộn (LS)", "Kết muộn (LF)", "Độ trễ", "Trạng thái"]) {
         await expect(page.getByRole("columnheader", { name: title, exact: true })).toBeVisible();
     }
@@ -30,6 +33,7 @@ test("T-28 renders all CPM fields, relative Vietnamese days and critical-only fi
     await expect(nonCritical).toHaveCount(0);
     await expect(page.getByRole("row").filter({ hasText: "Đổ bê tông" })).toBeVisible();
     expect(queries).toContain("true");
+    await expect(page.locator(".gantt-row")).toHaveCount(2);
     await page.getByRole("checkbox", { name: "Chỉ hiện công việc găng" }).uncheck();
     await expect(nonCritical).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("schedule.png"), fullPage: true });

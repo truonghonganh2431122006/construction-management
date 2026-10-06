@@ -1,162 +1,105 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
 import "../styles/Register.css";
 
-/* ---------------- icons (inline SVG) ---------------- */
+/* ===== Icons ===== */
+const IconLogo = () => (
+  <svg viewBox="0 0 48 48" width="38" height="38" aria-hidden="true">
+    <defs>
+      <linearGradient id="xdsRegisterLogoG" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#1e7ae8" />
+        <stop offset="100%" stopColor="#062c5c" />
+      </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#xdsRegisterLogoG)" />
+    <path d="M13 32l8-16 3 6-5 10z" fill="#ff7a00" />
+    <path d="M24 16l11 16h-7l-7-11z" fill="#ffffff" />
+  </svg>
+);
 
-const Ico = {
-  user: (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  ),
-  mail: (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="m22 7-10 6L2 7" />
-    </svg>
-  ),
-  phone: (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="2" width="12" height="20" rx="2.5" />
-      <path d="M11 18.5h2" />
-    </svg>
-  ),
-  building: (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="3" width="16" height="18" rx="2" />
-      <path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2" />
-    </svg>
-  ),
-  lock: (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="10" width="16" height="11" rx="2.5" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-    </svg>
-  ),
-  caret: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  ),
-  eye: (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  ),
-  eyeOff: (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3l18 18" />
-      <path d="M10.6 6.2A9.9 9.9 0 0 1 12 6c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.4 4.1M6.2 7.4A17.4 17.4 0 0 0 2 13s3.6 7 10 7a9.7 9.7 0 0 0 4-.8" />
-      <path d="M9.9 10.1a3 3 0 0 0 4.1 4.2" />
-    </svg>
-  ),
-  info: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5M12 8h.01" />
-    </svg>
-  ),
-  arrow: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h13M13 6l6 6-6 6" />
-    </svg>
-  ),
-  rocket: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 15c-1.5 1.5-2 6-2 6s4.5-.5 6-2c.9-.9.9-2.3 0-3.2a2.2 2.2 0 0 0-4 -.8Z" />
-      <path d="M15 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
-      <path d="M9 15 6.5 12.5C6.5 7 11 2.5 19 3c.5 8-4 12.5-9.5 12.5L9 15Z" />
-    </svg>
-  ),
-  chart: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
-      <path d="M6 18V11M12 18V6M18 18v-5" />
-    </svg>
-  ),
-  team: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3.2" />
-      <path d="M2.5 19a6.5 6.5 0 0 1 13 0" />
-      <path d="M16.5 6.2a3 3 0 0 1 0 5.6M18 19a6.4 6.4 0 0 0-2-4.6" />
-    </svg>
-  ),
-  shield: (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l7.5 3v5.5c0 4.6-3.1 8.4-7.5 9.5-4.4-1.1-7.5-4.9-7.5-9.5V6L12 3Z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  ),
-  people: (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="8" r="3" />
-      <path d="M3 19a6 6 0 0 1 12 0" />
-      <circle cx="18" cy="9" r="2.2" />
-    </svg>
-  ),
-  trend: (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m3 16 5-5 4 4 8-8" />
-      <path d="M15 7h5v5" />
-    </svg>
-  ),
-  gift: (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="8" width="18" height="13" rx="2" />
-      <path d="M3 12h18M12 8v13" />
-      <path d="M12 8S10.5 3 8 3a2.5 2.5 0 0 0 0 5M12 8s1.5-5 4-5a2.5 2.5 0 0 1 0 5" />
-    </svg>
-  ),
-  badge: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M7 8h4M7 12h10M7 16h10" />
-    </svg>
-  ),
-  shieldSmall: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3l7 3v5.5c0 4.3-2.9 7.9-7 9-4.1-1.1-7-4.7-7-9V6l7-3Z" />
-      <path d="m9.5 12 1.8 1.8L15 10" />
-    </svg>
-  ),
-  chipUser: (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="3.4" />
-      <path d="M4.5 20a7.5 7.5 0 0 1 15 0" />
-    </svg>
-  ),
-};
+const IconUser = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <circle cx="12" cy="8" r="3.4" />
+    <path d="M4.8 20c.8-3.6 3.7-5.6 7.2-5.6s6.4 2 7.2 5.6" strokeLinecap="round" />
+  </svg>
+);
+
+const IconMail = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m4 7 8 6 8-6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const IconLock = () => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" />
+    <path d="M8 10.5V8a4 4 0 018 0v2.5" strokeLinecap="round" />
+  </svg>
+);
+
+const IconEye = ({ off }) => (
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.7">
+    <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12z" />
+    <circle cx="12" cy="12" r="3" />
+    {off && <path d="M4 20L20 4" strokeLinecap="round" />}
+  </svg>
+);
+
+const IconShield = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M12 3l7 2.6v5.6c0 4.3-2.9 7.9-7 9.2-4.1-1.3-7-4.9-7-9.2V5.6L12 3z" />
+    <path d="M9 12.2l2.2 2.2L15 10.6" strokeLinecap="round" />
+  </svg>
+);
+
+const IconChart = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+    <path d="M5 19V11M12 19V5M19 19v-6" />
+  </svg>
+);
+
+const IconTeam = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7">
+    <circle cx="9" cy="9" r="3" />
+    <circle cx="16.5" cy="10" r="2.3" />
+    <path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6M16 14.6c2.3.1 3.9 1.6 4.4 4.4" strokeLinecap="round" />
+  </svg>
+);
+
+const IconReport = () => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7">
+    <path d="M7 3.5h7l4 4v13H7z" />
+    <path d="M10 11h6M10 15h6" strokeLinecap="round" />
+  </svg>
+);
+
+const IconArrow = () => (
+  <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round">
+    <path d="M4 12h15M13 6l6 6-6 6" />
+  </svg>
+);
+
+const IconCaret = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 const FEATURES = [
-  { tone: "blue", icon: Ico.rocket, title: "Khởi tạo dự án nhanh", desc: "Thiết lập dự án dễ dàng, sẵn sàng triển khai ngay." },
-  { tone: "orange", icon: Ico.chart, title: "Quản lý tiến độ thời gian thực", desc: "Cập nhật công trường 24/7, kiểm soát chặt chẽ." },
-  { tone: "green", icon: Ico.team, title: "Theo dõi nhân sự & vật tư", desc: "Quản lý nhân lực, thiết bị, vật tư tập trung, minh bạch." },
-  { tone: "purple", icon: Ico.shield, title: "Báo cáo và cảnh báo an toàn", desc: "Chủ động phòng ngừa rủi ro, đảm bảo công trường an toàn." },
-];
-
-const PARTNERS = ["VINGROUP", "HÒA BÌNH", "COTECCONS", "DELTA", "RICONS", "PHỤC HƯNG"];
-
-const ROLES = [
-  { value: "engineer", label: "Kỹ sư" },
-  { value: "worker", label: "Công nhân" },
-  { value: "viewer", label: "Người xem" },
+  { icon: <IconShield />, tone: "blue", title: "Bảo mật dữ liệu", desc: "An toàn, tin cậy, đạt chuẩn doanh nghiệp" },
+  { icon: <IconChart />, tone: "orange", title: "Theo dõi tiến độ thời gian thực", desc: "Cập nhật công trường 24/7" },
+  { icon: <IconTeam />, tone: "green", title: "Quản lý nhân sự", desc: "Phân công, theo dõi và phối hợp hiệu quả" },
+  { icon: <IconReport />, tone: "purple", title: "Báo cáo nhanh", desc: "Số liệu trực quan, hỗ trợ ra quyết định" },
 ];
 
 const NAV = ["Tổng quan", "Dự án", "Tiến độ", "Nhân sự", "Vật tư", "Báo cáo"];
 
 const KPIS = [
-  { value: "68%", label: "Tiến độ tổng", delta: "↑ 12% so với tháng trước" },
-  { value: "342", label: "Nhân sự đang làm việc", delta: "↑ 8% so với tháng trước" },
-  { value: "125,8 tỷ", label: "Giá trị thi công", delta: "↑ 5% so với tháng trước" },
-  { value: "98%", label: "Tỷ lệ an toàn", delta: "↑ 2% so với tháng trước" },
-];
-
-const CHART = [
-  [38, 30], [46, 40], [42, 48], [55, 44], [50, 58], [62, 52],
-  [58, 66], [70, 60], [66, 74], [78, 70], [74, 86], [88, 80],
+  { value: "68%", label: "Tiến độ tổng", delta: "12% so với tháng trước" },
+  { value: "342", label: "Nhân sự đang làm việc", delta: "8% so với tháng trước" },
+  { value: "125,8 tỷ", label: "Giá trị thi công", delta: "5% so với tháng trước" },
+  { value: "98%", label: "Tỷ lệ an toàn", delta: "2% so với tháng trước" },
 ];
 
 const PROJECTS = [
@@ -166,7 +109,14 @@ const PROJECTS = [
   { name: "Cầu Trần Hưng Đạo", pct: 80 },
 ];
 
-/* Payload dễ chỉnh sửa: chỉ gửi field backend hỗ trợ. */
+const BARS = [38, 44, 52, 48, 60, 56, 66, 62, 72, 68, 82, 76];
+
+const ROLES = [
+  { value: "engineer", label: "Kỹ sư" },
+  { value: "worker", label: "Công nhân" },
+  { value: "viewer", label: "Người xem" },
+];
+
 async function registerAccount(payload) {
   const res = await fetch("/auth/register", {
     method: "POST",
@@ -187,16 +137,15 @@ async function registerAccount(payload) {
       data?.message || data?.error || "Không thể tạo tài khoản. Vui lòng thử lại.",
     );
   }
+
   return data;
 }
 
-function RegisterPage() {
+export default function Register() {
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -209,45 +158,61 @@ function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState({});
 
   function validate() {
-    const e = {};
-    if (!fullName.trim()) e.fullName = "Vui lòng nhập họ và tên.";
-    if (!email.trim()) e.email = "Vui lòng nhập email công việc.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
-      e.email = "Email không hợp lệ.";
+    const errors = {};
 
-    const digits = phone.replace(/[^\d]/g, "");
-    if (!phone.trim()) e.phone = "Vui lòng nhập số điện thoại.";
-    else if (!/^(\+84|0)?\d{8,11}$/.test(phone.trim().replace(/[\s.-]/g, "")) || digits.length < 9 || digits.length > 11)
-      e.phone = "Số điện thoại không hợp lệ.";
+    if (!fullName.trim()) {
+      errors.fullName = "Vui lòng nhập họ và tên.";
+    }
 
-    if (!company.trim()) e.company = "Vui lòng nhập tên công ty hoặc đơn vị.";
-    if (!role) e.role = "Vui lòng chọn vai trò.";
+    if (!email.trim()) {
+      errors.email = "Vui lòng nhập email.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = "Email không hợp lệ.";
+    }
 
-    if (!password) e.password = "Vui lòng nhập mật khẩu.";
-    else if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password))
-      e.password = "Mật khẩu tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và số.";
+    if (!role) {
+      errors.role = "Vui lòng chọn vai trò.";
+    }
 
-    if (!confirmPassword) e.confirmPassword = "Vui lòng nhập lại mật khẩu.";
-    else if (confirmPassword !== password)
-      e.confirmPassword = "Xác nhận mật khẩu không khớp.";
+    if (!password) {
+      errors.password = "Vui lòng nhập mật khẩu.";
+    } else if (
+      password.length < 8 ||
+      !/[A-Z]/.test(password) ||
+      !/[a-z]/.test(password) ||
+      !/\d/.test(password)
+    ) {
+      errors.password = "Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và số.";
+    }
 
-    if (!acceptedTerms) e.acceptedTerms = "Bạn cần đồng ý với điều khoản sử dụng.";
-    return e;
+    if (!confirmPassword) {
+      errors.confirmPassword = "Vui lòng nhập lại mật khẩu.";
+    } else if (confirmPassword !== password) {
+      errors.confirmPassword = "Xác nhận mật khẩu không khớp.";
+    }
+
+    if (!acceptedTerms) {
+      errors.acceptedTerms = "Bạn cần đồng ý với điều khoản sử dụng.";
+    }
+
+    return errors;
   }
 
-  async function handleSubmit(ev) {
-    ev.preventDefault();
+  async function handleSubmit(event) {
+    event.preventDefault();
     setError("");
     setSuccess("");
 
-    const errs = validate();
-    setFieldErrors(errs);
-    if (Object.keys(errs).length > 0) {
+    const errors = validate();
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
       setError("Vui lòng kiểm tra lại thông tin đã nhập.");
       return;
     }
 
     setLoading(true);
+
     try {
       const data = await registerAccount({
         fullname: fullName.trim(),
@@ -255,10 +220,15 @@ function RegisterPage() {
         password,
         role,
       });
-      setSuccess(data?.message || "Tạo tài khoản thành công. Đang chuyển tới trang đăng nhập...");
+
+      setSuccess(
+        data?.message ||
+          "Tạo tài khoản thành công. Đang chuyển tới trang đăng nhập...",
+      );
+
       setTimeout(() => {
         navigate("/login");
-      }, 1200);
+      }, 1000);
     } catch (err) {
       setError(
         err instanceof Error
@@ -270,204 +240,171 @@ function RegisterPage() {
     }
   }
 
+  const clearFieldError = (name) => {
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
   return (
-    <div className="xds-register">
-      <div className="xds-register-bg" aria-hidden="true" />
+    <main className="xds-register">
+      <div className="xds-register-bg" />
+      <div className="xds-register-veil" />
 
       <div className="xds-register-shell">
-        {/* ================= LEFT ================= */}
-        <div className="xds-register-left">
-          <div className="xds-register-tagline">
-            <span className="xds-register-tagline-item is-active">Số hoá công trường</span>
-            <span className="xds-register-tagline-sep">•</span>
-            <span className="xds-register-tagline-item">Kết nối con người</span>
-            <span className="xds-register-tagline-sep">•</span>
-            <span className="xds-register-tagline-item">Kiến tạo tương lai</span>
-          </div>
+        {/* LEFT — giữ cùng ngôn ngữ thiết kế với Login */}
+        <section className="xds-register-left">
+          <header className="xds-register-top">
+            <Link to="/home" className="xds-register-brand">
+              <IconLogo />
+              <span className="xds-register-brand-name">XÂY DỰNG SỐ</span>
+              <span className="xds-register-brand-sep" />
+              <span className="xds-register-brand-sub">
+                NỀN TẢNG ĐIỀU HÀNH
+                <br />
+                THI CÔNG CÔNG TRÌNH
+              </span>
+            </Link>
 
-          <Link to="/home" className="xds-register-brand">
-            <svg className="xds-register-logo-mark" width="44" height="44" viewBox="0 0 48 48" fill="none">
-              <rect x="3" y="14" width="18" height="10" rx="3" transform="rotate(-38 3 14)" fill="#1368ce" />
-              <rect x="14" y="8" width="20" height="10" rx="3" transform="rotate(38 14 8)" fill="#ff7a00" />
-              <rect x="10" y="30" width="20" height="10" rx="3" transform="rotate(-38 10 30)" fill="#ff9a20" />
-              <rect x="27" y="24" width="18" height="10" rx="3" transform="rotate(38 27 24)" fill="#062c5c" />
-            </svg>
-            <span className="xds-register-logo-text">XÂY DỰNG SỐ</span>
-            <span className="xds-register-brand-divider" />
-            <span className="xds-register-brand-sub">
-              Nền tảng điều hành
-              <br />
-              Thi công công trình
-            </span>
-          </Link>
+            <div className="xds-register-tagline">
+              <span className="is-active">SỐ HOÁ CÔNG TRƯỜNG</span>
+              <i>•</i>
+              <span>KẾT NỐI CON NGƯỜI</span>
+              <i>•</i>
+              <span>KIẾN TẠO TƯƠNG LAI</span>
+            </div>
+          </header>
 
           <div className="xds-register-hero">
-            <h1>
-              <span className="xds-register-hero-line1">Đăng ký để</span>
-              <span className="xds-register-hero-line2">quản lý thi công chuyên nghiệp</span>
+            <h1 className="xds-register-headline">
+              <span className="navy">Đăng ký để</span>
+              <span className="orange">bắt đầu quản lý công trình</span>
             </h1>
-            <p>
-              Quản lý toàn diện dự án, tiến độ, nhân sự, vật tư, an toàn và báo cáo trên
-              một nền tảng duy nhất. Giúp doanh nghiệp xây dựng vận hành hiệu quả, tiết
-              kiệm thời gian và tối ưu chi phí.
+            <p className="xds-register-desc">
+              Tạo tài khoản để tham gia hệ thống quản lý dự án, tiến độ, công việc
+              và phối hợp thi công trên một nền tảng duy nhất.
             </p>
-          </div>
 
-          <div className="xds-register-features">
-            {FEATURES.map((f) => (
-              <div className="xds-register-feature" key={f.title}>
-                <div className={`xds-register-feature-icon is-${f.tone}`}>{f.icon}</div>
-                <div>
-                  <h3>{f.title}</h3>
-                  <p>{f.desc}</p>
+            <div className="xds-register-features">
+              {FEATURES.map((feature) => (
+                <div className="xds-register-feature" key={feature.title}>
+                  <span className={`xds-register-fic tone-${feature.tone}`}>
+                    {feature.icon}
+                  </span>
+                  <div>
+                    <h3>{feature.title}</h3>
+                    <p>{feature.desc}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="xds-register-partners">
-            <div className="xds-register-partners-head">
-              <div className="xds-register-partners-icon">{Ico.people}</div>
-              <div>
-                <div className="xds-register-partners-title">Được tin dùng bởi</div>
-                <div className="xds-register-partners-sub">doanh nghiệp xây dựng hiện đại</div>
-              </div>
-            </div>
-            <div className="xds-register-partners-logos">
-              {PARTNERS.map((p) => (
-                <span className="xds-register-partner-logo" key={p}>
-                  {p}
-                </span>
               ))}
             </div>
           </div>
 
-          {/* ---- dashboard mockup ---- */}
-          <div className="xds-register-dash-wrap">
-            <div className="xds-register-dash">
-              <aside className="xds-register-dash-side">
-                <div className="xds-register-dash-brand">
-                  <svg width="16" height="16" viewBox="0 0 48 48" fill="none">
-                    <rect x="4" y="14" width="16" height="9" rx="3" transform="rotate(-38 4 14)" fill="#4b9bff" />
-                    <rect x="15" y="9" width="18" height="9" rx="3" transform="rotate(38 15 9)" fill="#ff9a20" />
-                  </svg>
-                  XÂY DỰNG SỐ
+          <div className="xds-register-mock-wrap">
+            <div className="xds-register-mock">
+              <aside className="xds-register-mock-side">
+                <div className="xds-register-mock-side-brand">
+                  <IconLogo />
+                  <span>XÂY DỰNG SỐ</span>
                 </div>
-                <nav className="xds-register-dash-nav">
-                  {NAV.map((n, i) => (
-                    <span
-                      key={n}
-                      className={`xds-register-dash-nav-item${i === 0 ? " is-active" : ""}`}
-                    >
-                      <span className="xds-register-dash-dot" />
-                      {n}
-                    </span>
+
+                <ul>
+                  {NAV.map((item, index) => (
+                    <li key={item} className={index === 0 ? "is-active" : ""}>
+                      <span className="dot" />
+                      {item}
+                    </li>
                   ))}
-                </nav>
+                </ul>
               </aside>
 
-              <div className="xds-register-dash-main">
-                <div className="xds-register-dash-top">
-                  <div className="xds-register-dash-search">Tìm kiếm dự án, tài liệu...</div>
-                  <div className="xds-register-dash-user">
-                    <span className="xds-register-dash-avatar">NB</span>
-                    <span>
-                      Nguyễn Văn Bình
-                      <br />
-                      <span style={{ fontWeight: 400, color: "#7c8aa0" }}>
-                        Công ty Xây dựng ABC
-                      </span>
-                    </span>
-                  </div>
+              <div className="xds-register-mock-main">
+                <div className="xds-register-mock-head">
+                  <h4>Tổng quan dự án</h4>
+                  <span className="xds-register-mock-pill">Q3 · 2026</span>
                 </div>
 
-                <h4 className="xds-register-dash-title">Tổng quan dự án</h4>
-
-                <div className="xds-register-kpis">
-                  {KPIS.map((k) => (
-                    <div className="xds-register-kpi" key={k.label}>
-                      <div className="xds-register-kpi-value">{k.value}</div>
-                      <div className="xds-register-kpi-label">{k.label}</div>
-                      <div className="xds-register-kpi-delta">{k.delta}</div>
+                <div className="xds-register-mock-kpis">
+                  {KPIS.map((kpi) => (
+                    <div className="xds-register-mock-kpi" key={kpi.label}>
+                      <strong>{kpi.value}</strong>
+                      <span className="lbl">{kpi.label}</span>
+                      <span className="delta">↑ {kpi.delta}</span>
                     </div>
                   ))}
                 </div>
 
-                <div className="xds-register-dash-grid">
-                  <div className="xds-register-panel">
-                    <div className="xds-register-panel-head">
-                      <span className="xds-register-panel-title">Tiến độ thi công theo tháng</span>
-                      <span className="xds-register-panel-legend">
-                        <span>
-                          <i className="xds-register-legend-dot" style={{ background: "#b9d4f7" }} />
-                          Kế hoạch
-                        </span>
-                        <span>
-                          <i className="xds-register-legend-dot" style={{ background: "#1368ce" }} />
-                          Thực tế
-                        </span>
+                <div className="xds-register-mock-grid">
+                  <div className="xds-register-mock-card">
+                    <div className="xds-register-mock-card-head">
+                      <span>Tiến độ thi công theo tháng</span>
+                      <span className="legend">
+                        <i className="l1" /> Kế hoạch
+                        <i className="l2" /> Thực tế
                       </span>
                     </div>
-                    <div className="xds-register-chart">
-                      {CHART.map(([plan, real], i) => (
-                        <div className="xds-register-chart-col" key={i}>
-                          <span className="xds-register-bar is-plan" style={{ height: `${plan}%` }} />
-                          <span className="xds-register-bar is-real" style={{ height: `${real}%` }} />
+
+                    <div className="xds-register-mock-bars">
+                      {BARS.map((height, index) => (
+                        <div className="xds-register-mock-bar" key={index}>
+                          <span className="plan" style={{ height: `${height}%` }} />
+                          <span
+                            className="real"
+                            style={{ height: `${Math.max(12, height - 14)}%` }}
+                          />
                         </div>
                       ))}
                     </div>
-                    <div className="xds-register-chart-labels">
-                      {CHART.map((_, i) => (
-                        <span key={i}>T{i + 1}</span>
-                      ))}
-                    </div>
                   </div>
 
-                  <div className="xds-register-panel">
-                    <div className="xds-register-panel-head">
-                      <span className="xds-register-panel-title">Dự án đang triển khai</span>
-                      <span className="xds-register-panel-legend">Xem tất cả →</span>
+                  <div className="xds-register-mock-card">
+                    <div className="xds-register-mock-card-head">
+                      <span>Dự án đang triển khai</span>
                     </div>
-                    {PROJECTS.map((p) => (
-                      <div className="xds-register-project" key={p.name}>
-                        <span className="xds-register-project-name">{p.name}</span>
-                        <span className="xds-register-project-track">
-                          <span className="xds-register-project-fill" style={{ width: `${p.pct}%` }} />
-                        </span>
-                        <span className="xds-register-project-pct">{p.pct}%</span>
-                      </div>
-                    ))}
+
+                    <ul className="xds-register-mock-projects">
+                      {PROJECTS.map((project) => (
+                        <li key={project.name}>
+                          <span className="nm">{project.name}</span>
+                          <span className="bar">
+                            <i style={{ width: `${project.pct}%` }} />
+                          </span>
+                          <span className="pc">{project.pct}%</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="xds-register-floating">
-              <span className="xds-register-floating-icon">{Ico.trend}</span>
-              <span>
-                <span className="xds-register-floating-title">Vận hành hiệu quả</span>
-                <br />
-                <span className="xds-register-floating-sub">Kiến tạo những công trình giá trị</span>
+            <div className="xds-register-float">
+              <span className="xds-register-float-ic">
+                <IconTeam />
               </span>
+              <div>
+                <strong>Kết nối đội ngũ</strong>
+                <p>Bắt đầu dự án với một tài khoản duy nhất</p>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* ================= RIGHT ================= */}
-        <div className="xds-register-right">
+        {/* RIGHT — form đăng ký gọn trong 1 màn hình */}
+        <section className="xds-register-right">
           <div className="xds-register-card">
-            <div className="xds-register-lang-row">
-              <button type="button" className="xds-register-lang">
-                <span className="xds-register-flag">★</span>
-                Tiếng Việt
-                {Ico.caret}
-              </button>
+            <div className="xds-register-lang">
+              <span className="flag" aria-hidden="true">★</span>
+              Tiếng Việt
+              <span className="chev">˅</span>
             </div>
 
-            <h2>Đăng ký tài khoản</h2>
-            <p className="xds-register-card-desc">
-              Tạo tài khoản để bắt đầu sử dụng nền tảng Xây Dựng Số và quản lý thi công
-              công trình hiệu quả.
+            <h2 className="xds-register-title">Đăng ký</h2>
+            <p className="xds-register-subtitle">
+              Tạo tài khoản để bắt đầu sử dụng Xây Dựng Số.
             </p>
 
             {error && (
@@ -475,117 +412,92 @@ function RegisterPage() {
                 {error}
               </div>
             )}
+
             {success && (
               <div className="xds-register-alert is-success" role="status">
                 {success}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} noValidate>
-              <div className="xds-register-field">
-                <label className="xds-register-label" htmlFor="xds-fullname">
-                  Họ và tên<span className="xds-register-req">*</span>
-                </label>
-                <div className="xds-register-input-wrap">
-                  <span className="xds-register-input-icon">{Ico.user}</span>
-                  <input
-                    id="xds-fullname"
-                    type="text"
-                    autoComplete="name"
-                    placeholder="Nhập họ và tên của bạn"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className={fieldErrors.fullName ? "has-error" : ""}
-                  />
+            <form className="xds-register-form" onSubmit={handleSubmit} noValidate>
+              <div className="xds-register-row2">
+                <div className="xds-register-field">
+                  <label className="xds-register-label" htmlFor="xds-fullname">
+                    Họ và tên
+                  </label>
+                  <div className="xds-register-input-wrap">
+                    <span className="xds-register-input-icon"><IconUser /></span>
+                    <input
+                      id="xds-fullname"
+                      type="text"
+                      autoComplete="name"
+                      placeholder="Nguyễn Văn A"
+                      value={fullName}
+                      onChange={(e) => {
+                        setFullName(e.target.value);
+                        clearFieldError("fullName");
+                      }}
+                      className={fieldErrors.fullName ? "has-error" : ""}
+                      disabled={loading}
+                    />
+                  </div>
+                  {fieldErrors.fullName && (
+                    <span className="xds-register-error">{fieldErrors.fullName}</span>
+                  )}
                 </div>
-                {fieldErrors.fullName && (
-                  <span className="xds-register-error">{fieldErrors.fullName}</span>
-                )}
-              </div>
 
-              <div className="xds-register-field">
-                <label className="xds-register-label" htmlFor="xds-email">
-                  Email công việc<span className="xds-register-req">*</span>
-                </label>
-                <div className="xds-register-input-wrap">
-                  <span className="xds-register-input-icon">{Ico.mail}</span>
-                  <input
-                    id="xds-email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="Nhập email công việc (vd: ten@congty.com)"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={fieldErrors.email ? "has-error" : ""}
-                  />
+                <div className="xds-register-field">
+                  <label className="xds-register-label" htmlFor="xds-email">
+                    Email
+                  </label>
+                  <div className="xds-register-input-wrap">
+                    <span className="xds-register-input-icon"><IconMail /></span>
+                    <input
+                      id="xds-email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="example@email.com"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        clearFieldError("email");
+                      }}
+                      className={fieldErrors.email ? "has-error" : ""}
+                      disabled={loading}
+                    />
+                  </div>
+                  {fieldErrors.email && (
+                    <span className="xds-register-error">{fieldErrors.email}</span>
+                  )}
                 </div>
-                {fieldErrors.email && (
-                  <span className="xds-register-error">{fieldErrors.email}</span>
-                )}
-              </div>
-
-              <div className="xds-register-field">
-                <label className="xds-register-label" htmlFor="xds-phone">
-                  Số điện thoại<span className="xds-register-req">*</span>
-                </label>
-                <div className="xds-register-input-wrap">
-                  <span className="xds-register-input-icon">{Ico.phone}</span>
-                  <input
-                    id="xds-phone"
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder="Nhập số điện thoại của bạn"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={fieldErrors.phone ? "has-error" : ""}
-                  />
-                </div>
-                {fieldErrors.phone && (
-                  <span className="xds-register-error">{fieldErrors.phone}</span>
-                )}
-              </div>
-
-              <div className="xds-register-field">
-                <label className="xds-register-label" htmlFor="xds-company">
-                  Tên công ty / đơn vị<span className="xds-register-req">*</span>
-                </label>
-                <div className="xds-register-input-wrap">
-                  <span className="xds-register-input-icon">{Ico.building}</span>
-                  <input
-                    id="xds-company"
-                    type="text"
-                    autoComplete="organization"
-                    placeholder="Nhập tên công ty hoặc đơn vị"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    className={fieldErrors.company ? "has-error" : ""}
-                  />
-                </div>
-                {fieldErrors.company && (
-                  <span className="xds-register-error">{fieldErrors.company}</span>
-                )}
               </div>
 
               <div className="xds-register-field">
                 <label className="xds-register-label" htmlFor="xds-role">
-                  Vai trò<span className="xds-register-req">*</span>
+                  Vai trò
                 </label>
                 <div className="xds-register-input-wrap">
-                  <span className="xds-register-input-icon">{Ico.lock}</span>
+                  <span className="xds-register-input-icon"><IconTeam /></span>
                   <select
                     id="xds-role"
                     value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className={`${role ? "" : "is-placeholder"} ${fieldErrors.role ? "has-error" : ""}`}
+                    onChange={(e) => {
+                      setRole(e.target.value);
+                      clearFieldError("role");
+                    }}
+                    className={`${role ? "" : "is-placeholder"} ${
+                      fieldErrors.role ? "has-error" : ""
+                    }`}
+                    disabled={loading}
                   >
-                    <option value="">Chọn vai trò của bạn</option>
-                    {ROLES.map((r) => (
-                      <option key={r.value} value={r.value}>
-                        {r.label}
+                    <option value="">Chọn vai trò</option>
+                    {ROLES.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
                       </option>
                     ))}
                   </select>
-                  <span className="xds-register-input-caret">{Ico.caret}</span>
+                  <span className="xds-register-input-caret"><IconCaret /></span>
                 </div>
                 {fieldErrors.role && (
                   <span className="xds-register-error">{fieldErrors.role}</span>
@@ -595,27 +507,30 @@ function RegisterPage() {
               <div className="xds-register-row2">
                 <div className="xds-register-field">
                   <label className="xds-register-label" htmlFor="xds-password">
-                    Mật khẩu<span className="xds-register-req">*</span>
+                    Mật khẩu
                   </label>
                   <div className="xds-register-input-wrap">
-                    <span className="xds-register-input-icon">{Ico.lock}</span>
+                    <span className="xds-register-input-icon"><IconLock /></span>
                     <input
                       id="xds-password"
                       type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
                       placeholder="Nhập mật khẩu"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearFieldError("password");
+                      }}
                       className={fieldErrors.password ? "has-error" : ""}
-                      style={{ paddingRight: 42 }}
+                      disabled={loading}
                     />
                     <button
                       type="button"
                       className="xds-register-eye"
+                      onClick={() => setShowPassword((value) => !value)}
                       aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      onClick={() => setShowPassword((v) => !v)}
                     >
-                      {showPassword ? Ico.eyeOff : Ico.eye}
+                      <IconEye off={!showPassword} />
                     </button>
                   </div>
                   {fieldErrors.password && (
@@ -624,70 +539,83 @@ function RegisterPage() {
                 </div>
 
                 <div className="xds-register-field">
-                  <label className="xds-register-label" htmlFor="xds-confirm">
-                    Xác nhận mật khẩu<span className="xds-register-req">*</span>
+                  <label className="xds-register-label" htmlFor="xds-confirm-password">
+                    Xác nhận mật khẩu
                   </label>
                   <div className="xds-register-input-wrap">
-                    <span className="xds-register-input-icon">{Ico.lock}</span>
+                    <span className="xds-register-input-icon"><IconLock /></span>
                     <input
-                      id="xds-confirm"
+                      id="xds-confirm-password"
                       type={showConfirmPassword ? "text" : "password"}
                       autoComplete="new-password"
                       placeholder="Nhập lại mật khẩu"
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        clearFieldError("confirmPassword");
+                      }}
                       className={fieldErrors.confirmPassword ? "has-error" : ""}
-                      style={{ paddingRight: 42 }}
+                      disabled={loading}
                     />
                     <button
                       type="button"
                       className="xds-register-eye"
-                      aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      onClick={() => setShowConfirmPassword((value) => !value)}
+                      aria-label={
+                        showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                      }
                     >
-                      {showConfirmPassword ? Ico.eyeOff : Ico.eye}
+                      <IconEye off={!showConfirmPassword} />
                     </button>
                   </div>
                   {fieldErrors.confirmPassword && (
-                    <span className="xds-register-error">{fieldErrors.confirmPassword}</span>
+                    <span className="xds-register-error">
+                      {fieldErrors.confirmPassword}
+                    </span>
                   )}
                 </div>
               </div>
 
               <div className="xds-register-hint">
-                {Ico.info}
-                Tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và số.
+                Mật khẩu tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và số.
               </div>
 
               <label className="xds-register-terms">
                 <input
                   type="checkbox"
                   checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  onChange={(e) => {
+                    setAcceptedTerms(e.target.checked);
+                    clearFieldError("acceptedTerms");
+                  }}
+                  disabled={loading}
                 />
                 <span>
                   Tôi đồng ý với{" "}
-                  <span className="xds-register-link">Điều khoản sử dụng</span> và{" "}
-                  <span className="xds-register-link">Chính sách bảo mật</span> của Xây
-                  Dựng Số.
-                  {fieldErrors.acceptedTerms && (
-                    <span className="xds-register-error">{fieldErrors.acceptedTerms}</span>
-                  )}
+                  <button type="button" className="xds-register-inline-link">
+                    Điều khoản sử dụng
+                  </button>{" "}
+                  và{" "}
+                  <button type="button" className="xds-register-inline-link">
+                    Chính sách bảo mật
+                  </button>
+                  .
                 </span>
               </label>
 
-              <button type="submit" className="xds-register-submit" disabled={loading}>
-                {loading ? (
-                  <>
-                    <span className="xds-register-spinner" />
-                    Đang tạo tài khoản...
-                  </>
-                ) : (
-                  <>
-                    Tạo tài khoản
-                    {Ico.arrow}
-                  </>
-                )}
+              {fieldErrors.acceptedTerms && (
+                <span className="xds-register-error xds-register-terms-error">
+                  {fieldErrors.acceptedTerms}
+                </span>
+              )}
+
+              <button
+                type="submit"
+                className="xds-register-submit"
+                disabled={loading}
+              >
+                {loading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
+                {!loading && <IconArrow />}
               </button>
             </form>
 
@@ -695,75 +623,19 @@ function RegisterPage() {
               Đã có tài khoản? <Link to="/login">Đăng nhập ngay</Link>
             </div>
 
-            <div className="xds-register-divider">Hoặc đăng ký bằng</div>
-
-            <div className="xds-register-alt">
-              <button type="button" className="xds-register-alt-card">
-                <span className="xds-register-alt-icon is-blue">{Ico.badge}</span>
-                <span>
-                  <span className="xds-register-alt-title">SSO Doanh nghiệp</span>
-                  <br />
-                  <span className="xds-register-alt-sub">Tài khoản nội bộ công ty</span>
-                </span>
-              </button>
-              <button type="button" className="xds-register-alt-card">
-                <span className="xds-register-alt-icon is-green">{Ico.shieldSmall}</span>
-                <span>
-                  <span className="xds-register-alt-title">Email OTP</span>
-                  <br />
-                  <span className="xds-register-alt-sub">Đăng ký bằng mã xác thực</span>
-                </span>
-              </button>
-            </div>
-
-            <div className="xds-register-trial">
-              <span style={{ color: "#1368ce", display: "flex" }}>{Ico.gift}</span>
-              <span>
-                <span className="xds-register-trial-title">Dùng thử miễn phí 14 ngày</span>
-                <br />
-                <span className="xds-register-trial-sub">
-                  Trải nghiệm đầy đủ tính năng. Đội ngũ chuyên gia hỗ trợ triển khai.
-                </span>
-              </span>
-            </div>
-
-            <div className="xds-register-chips-title">Chọn vai trò phổ biến (tùy chọn)</div>
-            <div className="xds-register-chips">
-              {ROLES.map((r) => (
-                <button
-                  type="button"
-                  key={r.value}
-                  className={`xds-register-chip${role === r.value ? " is-selected" : ""}`}
-                  onClick={() => {
-                    setRole(r.value);
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.role;
-                      return next;
-                    });
-                  }}
-                >
-                  {Ico.chipUser}
-                  {r.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="xds-register-foot">
-              <span className="xds-register-foot-links">
-                <a href="#privacy">Chính sách bảo mật</a>
-                <span className="xds-register-foot-sep">|</span>
-                <a href="#terms">Điều khoản sử dụng</a>
-                <span className="xds-register-foot-sep">|</span>
-                <a href="#support">Hỗ trợ</a>
-              </span>
-              <span>Phiên bản 1.0.0</span>
-            </div>
+            <footer className="xds-register-foot">
+              <div className="links">
+                <button type="button">Chính sách bảo mật</button>
+                <i>|</i>
+                <button type="button">Điều khoản sử dụng</button>
+                <i>|</i>
+                <button type="button">Hỗ trợ</button>
+              </div>
+              <span className="ver">Phiên bản 1.0.0</span>
+            </footer>
           </div>
-        </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
-
-export default RegisterPage;

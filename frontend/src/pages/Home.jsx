@@ -1,626 +1,971 @@
-import { Link } from "react-router-dom";
-import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import useRemote from "../hooks/useRemote";
+import { scopedLink } from "../services/navigation";
 import "../styles/Home.css";
 
-const NAV = [
-  { label: "Trang chủ", href: "#top" },
-  { label: "Dự án", href: "#du-an" },
-  { label: "Tiến độ", href: "#tien-do" },
-  { label: "Nhân sự", href: "#nhan-su" },
-  { label: "Vật tư", href: "#vat-tu" },
-  { label: "An toàn", href: "#an-toan" },
-  { label: "Báo cáo", href: "#bao-cao" },
-  { label: "Liên hệ", href: "#lien-he" },
-];
+const heroImg =
+  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=85";
+const logSlab =
+  "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=500&q=80";
+const logFormwork =
+  "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=500&q=80";
+const avatarMinh =
+  "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=200&q=80";
 
-const BENEFITS = [
-  "Triển khai nhanh",
-  "Dễ sử dụng",
-  "Bảo mật dữ liệu",
-  "Phù hợp nhiều quy mô",
-];
+/* ---------------- icons ---------------- */
+const I = {
+  home: "M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z",
+  project: "M3 7h7l2 2h9v11H3z",
+  users: "M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 9a4 4 0 1 0 0-8 4 4 0 0 0 0 8m13 10v-2a4 4 0 0 0-3-3.9",
+  tree: "M4 4h6v5H4zM14 2h6v5h-6zM14 11h6v5h-6zM10 6.5h4M10 13.5h4M7 9v10h7",
+  gantt: "M4 6h9M4 11h13M4 16h7M4 21h16M4 3v18",
+  calendar: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
+  assign: "M9 11l3 3 7-7M4 5h10M4 10h5M4 15h7M4 20h9",
+  journal: "M5 3h14v18H5zM9 7h7M9 11h7M9 15h4",
+  check: "M4 4h16v16H4zM8 12l3 3 5-6",
+  payment: "M3 7h18v10H3zM3 11h18M7 15h3",
+  cost: "M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10",
+  photo: "M3 5h18v14H3zM3 15l5-5 4 4 3-3 6 6",
+  report: "M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5",
+  bell: "M18 16V11a6 6 0 1 0-12 0v5l-2 3h16zM10 22h4",
+  system: "M4 5h16v14H4zM8 9h8M8 13h5",
+  settings:
+    "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7",
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16m10 2-4.5-4.5",
+  help: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M9.5 9a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.9-.9 1.5v.5M12 17h.01",
+  chevron: "m6 9 6 6 6-6",
+  building: "M4 21V5l8-3v19M12 21V9l8 3v9M7 8h2M7 12h2M7 16h2M15 13h2M15 17h2",
+  warn: "M12 3 2 20h20zM12 9v5M12 17h.01",
+  cube: "M12 2 3 7v10l9 5 9-5V7zM3 7l9 5 9-5M12 12v10",
+  money: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M12 6v12M14.5 9.5c0-1-1.1-1.5-2.5-1.5s-2.5.5-2.5 1.7S10.8 11.5 12 12s2.6 1 2.6 2.2S13.4 16 12 16s-2.5-.6-2.5-1.5",
+  arrow: "M5 12h14M13 6l6 6-6 6",
+  plus: "M12 5v14M5 12h14",
+  folder: "M3 7h7l2 2h9v11H3z",
+  trend: "M3 17l6-6 4 4 7-7M14 8h6v6",
+  bolt: "M13 2 4 14h7l-1 8 9-12h-7z",
+  user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
+  info: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M12 8h.01M11 12h1v5h1",
+  chevronR: "m9 6 6 6-6 6",
+  chevronD: "m6 9 6 6 6-6",
+  collapse: "m11 17-5-5 5-5M18 17l-5-5 5-5",
+};
 
-const DASH_MENU = [
-  "Tổng quan",
-  "Dự án",
-  "Tiến độ",
-  "Nhân sự",
-  "Vật tư",
-  "An toàn",
-  "Báo cáo",
-];
-
-const DASH_KPIS = [
-  {
-    label: "Tiến độ dự án",
-    value: "68%",
-    delta: "↑ 12% so với tháng trước",
-    icon: "📈",
-    bg: "#eaf4ff",
-    color: "#1368ce",
-  },
-  {
-    label: "Tổng nhân sự",
-    value: "342",
-    delta: "↑ 8% so với tháng trước",
-    icon: "👷",
-    bg: "#e8f7f0",
-    color: "#13a66b",
-  },
-  {
-    label: "Tổng chi phí",
-    value: "125,8 tỷ",
-    delta: "↑ 5% so với tháng trước",
-    icon: "💰",
-    bg: "#fff2e3",
-    color: "#ff7a00",
-  },
-  {
-    label: "An toàn lao động",
-    value: "98%",
-    delta: "↑ 2% so với tháng trước",
-    icon: "🛡️",
-    bg: "#f0edff",
-    color: "#7c5cff",
-  },
-];
-
-const CHART = [
-  [42, 55],
-  [50, 48],
-  [38, 62],
-  [58, 52],
-  [46, 70],
-  [72, 60],
-  [55, 78],
-  [64, 58],
-  [48, 66],
-  [76, 70],
-  [60, 82],
-  [88, 74],
-];
-
-const DASH_TASKS = [
-  { title: "Đổ bê tông sàn tầng 12 — Tháp A", meta: "Vinhomes Ocean Park 3 · 2 giờ trước" },
-  { title: "Nghiệm thu cốt thép tầng 10", meta: "The Matrix One · 4 giờ trước" },
-  { title: "Vận chuyển vật tư đợt 3", meta: "KCN Bắc Ninh · 6 giờ trước" },
-  { title: "Kiểm tra an toàn định kỳ", meta: "Cầu Trần Hưng Đạo · 1 ngày trước" },
-];
-
-const STATS = [
-  { value: "18", label: "Dự án đang triển khai", delta: "↑ 20% so với năm trước", icon: "🏗️", bg: "#eaf4ff", color: "#1368ce" },
-  { value: "68%", label: "Tiến độ trung bình", delta: "↑ 12% so với tháng trước", icon: "📊", bg: "#e8f7f0", color: "#13a66b" },
-  { value: "342", label: "Công nhân hiện trường", delta: "↑ 8% so với tháng trước", icon: "👥", bg: "#eaf4ff", color: "#1368ce" },
-  { value: "125,8 tỷ", label: "Tổng chi phí dự án", delta: "↑ 5% so với tháng trước", icon: "💰", bg: "#fff2e3", color: "#ff7a00" },
-  { value: "98%", label: "Chỉ số an toàn", delta: "↑ 2% so với tháng trước", icon: "🛡️", bg: "#f0edff", color: "#7c5cff" },
-  { value: "27", label: "Công việc đang xử lý", delta: "↓ 10% so với tuần trước", icon: "📋", bg: "#ffeceb", color: "#e5484d", down: true },
-];
-
-const FEATURES = [
-  { icon: "🏗️", title: "Quản lý dự án", desc: "Theo dõi thông tin, kế hoạch và các bên liên quan", bg: "#eaf4ff", color: "#1368ce" },
-  { icon: "📈", title: "Quản lý tiến độ", desc: "Cập nhật tiến độ real-time và biểu đồ trực quan", bg: "#e8f7f0", color: "#13a66b" },
-  { icon: "👥", title: "Quản lý nhân sự", desc: "Chấm công, phân công và quản lý đội thi công", bg: "#eef1ff", color: "#4459d9" },
-  { icon: "📦", title: "Quản lý vật tư", desc: "Theo dõi nhập xuất kho, định mức và tồn kho", bg: "#fff2e3", color: "#ff7a00" },
-  { icon: "📓", title: "Nhật ký công trình", desc: "Ghi chép hiện trường, hình ảnh và biên bản", bg: "#f5edff", color: "#8b5cf6" },
-  { icon: "🚨", title: "Cảnh báo an toàn", desc: "Kiểm soát rủi ro và nhắc nhở cảnh báo sự cố", bg: "#ffeceb", color: "#e5484d" },
-  { icon: "🗂️", title: "Quản lý hồ sơ", desc: "Lưu trữ tài liệu, bản vẽ và nghiệm thu", bg: "#fff6dd", color: "#c78a00" },
-  { icon: "📊", title: "Báo cáo thời gian thực", desc: "Báo cáo đa dạng, trực quan, xuất file dễ dàng", bg: "#eaf4ff", color: "#1368ce" },
-  { icon: "🔐", title: "Phân quyền người dùng", desc: "Quản lý vai trò và quyền theo từng dự án", bg: "#e9f6f5", color: "#0f9b9b" },
-  { icon: "💹", title: "Theo dõi chi phí", desc: "Quản lý ngân sách, chi phí và hiệu quả đầu tư", bg: "#e8f7f0", color: "#13a66b" },
-];
-
-const PROJECTS = [
-  {
-    name: "Vinhomes Ocean Park 3",
-    place: "Hưng Yên",
-    pct: 75,
-    status: "Đang thi công",
-    badge: "xds-badge--green",
-    type: "Khu đô thị",
-    due: "12/2026",
-    img: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=900&q=70",
-  },
-  {
-    name: "The Matrix One",
-    place: "Hà Nội",
-    pct: 62,
-    status: "Thi công",
-    badge: "xds-badge--orange",
-    type: "Chung cư cao cấp",
-    due: "10/2026",
-    img: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=70",
-  },
-  {
-    name: "KCN Bắc Ninh mở rộng",
-    place: "Bắc Ninh",
-    pct: 35,
-    status: "Thiết kế",
-    badge: "",
-    type: "Khu công nghiệp",
-    due: "06/2027",
-    img: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=900&q=70",
-  },
-  {
-    name: "Cầu Trần Hưng Đạo",
-    place: "Hà Nội",
-    pct: 80,
-    status: "Đang thi công",
-    badge: "xds-badge--green",
-    type: "Hạ tầng giao thông",
-    due: "06/2027",
-    img: "https://images.unsplash.com/photo-1477414348463-c0eb7f1359b6?auto=format&fit=crop&w=900&q=70",
-  },
-  {
-    name: "Bệnh viện Đa khoa Tỉnh",
-    place: "Hải Dương",
-    pct: 80,
-    status: "Thi công",
-    badge: "xds-badge--orange",
-    type: "Công trình y tế",
-    due: "09/2026",
-    img: "https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&w=900&q=70",
-  },
-  {
-    name: "Khu nghỉ dưỡng Sơn Trà",
-    place: "Đà Nẵng",
-    pct: 20,
-    status: "Chuẩn bị",
-    badge: "xds-badge--navy",
-    type: "Du lịch nghỉ dưỡng",
-    due: "12/2027",
-    img: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=900&q=70",
-  },
-];
-
-const STEPS = [
-  { num: "01", icon: "🧭", title: "Lập kế hoạch", desc: "Thiết lập dự án, mục tiêu và nguồn lực" },
-  { num: "02", icon: "🧑‍🔧", title: "Phân công", desc: "Giao việc cho nhân sự và đội thi công" },
-  { num: "03", icon: "🔍", title: "Giám sát", desc: "Theo dõi tiến độ, chất lượng và an toàn real-time" },
-  { num: "04", icon: "📑", title: "Báo cáo", desc: "Tổng hợp số liệu và báo cáo tự động" },
-  { num: "05", icon: "⚙️", title: "Tối ưu", desc: "Phân tích, đánh giá và cải tiến liên tục" },
-];
-
-const PARTNERS = ["VIN GROUP", "HÒA BÌNH", "COTECCONS", "DELTA", "RICONS", "PHỤC HƯNG"];
-
-function Logo({ orange = false }) {
+function Icon({
+  d,
+  size = 18,
+  color = "currentColor",
+  width = 1.8,
+}) {
   return (
-    <div className="xds-logo">
-      <span className={"xds-logo__mark" + (orange ? " xds-logo__mark--orange" : "")}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 21h18M5 21V9l7-5 7 5v12M10 21v-6h4v6" strokeLinejoin="round" />
-        </svg>
-      </span>
-      <span>
-        <span className="xds-logo__name">XÂY DỰNG SỐ</span>
-        <span className="xds-logo__sub">Nền tảng điều hành thi công công trình</span>
-      </span>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth={width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
+/* ---------------- data ---------------- */
+const MENU = [
+  { label: "Tổng quan", icon: I.home, to: "/home", active: true },
+  { label: "Dự án", icon: I.project, to: "/projects" },
+  { label: "Thành viên & phân quyền", icon: I.users, to: "/members" },
+  { label: "Cây hạng mục", icon: I.tree, to: "/work-items" },
+  { label: "Tiến độ & đường găng", icon: I.gantt, to: "/schedule" },
+  { label: "Lịch làm việc", icon: I.calendar, to: "/calendar" },
+  { label: "Giao việc hiện trường", icon: I.assign, to: "/field-assignments" },
+  { label: "Nhật ký công trường", icon: I.journal, to: "/site-journal" },
+  { label: "Nghiệm thu khối lượng", icon: I.check, to: "/acceptance" },
+  { label: "Thanh toán", icon: I.payment, to: "/payments" },
+  { label: "Chi phí & vật tư", icon: I.cost, to: "/costs-materials" },
+  { label: "Ảnh hiện trường", icon: I.photo, to: "/site-photos" },
+  { label: "Báo cáo", icon: I.report, to: "/reports" },
+  { label: "Thông báo", icon: I.bell, to: "/notifications" },
+  { label: "Nhật ký hệ thống", icon: I.system, to: "/audit-logs" },
+  { label: "Cài đặt", icon: I.settings, to: "/settings" },
+];
+
+const KPIS = [
+  {
+    label: "Dự án đang hoạt động",
+    value: "6",
+    trend: "+1",
+    note: "so với tháng trước",
+    icon: I.building,
+    color: "#1988ff",
+    bg: "#e8f2ff",
+  },
+  { label: "Tiến độ tổng", value: "68%", trend: "+6%", note: "so với tháng trước", donut: 68 },
+  {
+    label: "Công việc găng",
+    value: "3",
+    trend: "+1",
+    note: "đang chậm tiến độ",
+    icon: I.warn,
+    color: "#ef4444",
+    bg: "#fdecec",
+    down: true,
+  },
+  {
+    label: "Nhật ký chờ đồng bộ",
+    value: "5",
+    trend: "+2",
+    note: "mục chưa đồng bộ",
+    icon: I.journal,
+    color: "#ff8500",
+    bg: "#fff3e2",
+    down: true,
+  },
+  {
+    label: "Khối lượng đã nghiệm thu",
+    value: "12.350 m³",
+    trend: "+8%",
+    note: "so với kỳ trước",
+    icon: I.cube,
+    color: "#17b7e8",
+    bg: "#e5f6fd",
+  },
+  {
+    label: "Giá trị thanh toán đề nghị",
+    value: "8,5 tỷ VNĐ",
+    trend: "+12%",
+    note: "so với kỳ trước",
+    icon: I.money,
+    color: "#ff8500",
+    bg: "#fff3e2",
+  },
+];
+
+const GANTT = [
+  { name: "1. Thi công phần móng", pct: "100%", caret: "down", bar: { l: 1, w: 20, type: "done" } },
+  { name: "2. Thi công phần thân", pct: "70%", caret: "down", bar: { l: 21, w: 37, type: "normal" } },
+  { name: "2.1. Cột, vách tầng 1-10", pct: "100%", child: true, bar: { l: 22, w: 17, type: "done" } },
+  { name: "2.2. Cột, vách tầng 11-20", pct: "75%", child: true, bar: { l: 33, w: 20, type: "light" } },
+  {
+    name: "2.3. Sàn tầng 11-20 (Công việc găng)",
+    pct: "",
+    child: true,
+    critical: true,
+    bar: { l: 45, w: 27, type: "critical" },
+  },
+  { name: "3. Thi công hoàn thiện", pct: "25%", caret: "right", bar: { l: 60, w: 24, type: "notstarted" } },
+  { name: "4. Hạ tầng, cảnh quan", pct: "0%", caret: "right", bar: { l: 76, w: 22, type: "notstarted" } },
+];
+
+const TASKS = [
+  ["Thi công sàn tầng 15", "01/08/2025", "05/08/2025", "Đội bê tông", "Sắp đến hạn", "orange"],
+  ["Lắp đặt coppha sàn tầng 16", "03/08/2025", "07/08/2025", "Đội coppha", "Sắp đến hạn", "orange"],
+  ["Thi công tường bao tầng 12", "28/07/2025", "06/08/2025", "Đội xây", "Đang thực hiện", "blue"],
+  ["Lắp đặt MEP tầng 10-12", "01/08/2025", "10/08/2025", "Đội MEP", "Bình thường", "green"],
+  ["Hoàn thiện mặt đứng block A", "05/08/2025", "15/08/2025", "Đội hoàn thiện", "Bình thường", "green"],
+];
+
+const LOGS = [
+  {
+    img: logSlab,
+    title: "Thi công sàn tầng 14 - Block A",
+    meta: "Hôm nay, 08:30  |  Nguyễn Văn Minh",
+    photos: "12 ảnh",
+    place: "Vị trí: Tầng 14",
+    status: "Đã đồng bộ",
+    tone: "green",
+  },
+  {
+    img: logFormwork,
+    title: "Lắp đặt cốp pha cột tầng 15",
+    meta: "Hôm qua, 16:20  |  Trần Văn Hùng",
+    photos: "8 ảnh",
+    place: "Vị trí: Tầng 15",
+    status: "Chờ đồng bộ",
+    tone: "orange",
+  },
+  {
+    img: logSlab,
+    title: "Nghiệm thu thép sàn tầng 13",
+    meta: "01/08/2025, 14:15  |  Lê Minh Quân",
+    photos: "15 ảnh",
+    place: "Vị trí: Tầng 13",
+    status: "Đã đồng bộ",
+    tone: "green",
+  },
+  {
+    img: logFormwork,
+    title: "Thi công tường bao tầng 12",
+    meta: "01/08/2025, 10:20  |  Phạm Thị Hạnh",
+    photos: "6 ảnh",
+    place: "Vị trí: Tầng 12",
+    status: "Chờ đồng bộ",
+    tone: "orange",
+  },
+];
+
+const COSTS = [
+  { name: "Phần móng", plan: 12.0, real: 10.5 },
+  { name: "Phần thân", plan: 38.0, real: 28.5 },
+  { name: "Hoàn thiện", plan: 32.0, real: 20.1 },
+  { name: "MEP", plan: 18.0, real: 11.2 },
+  { name: "Hạ tầng cảnh quan", plan: 20.0, real: 8.3 },
+];
+
+const ALERTS = [
+  {
+    tone: "red",
+    icon: I.warn,
+    title: 'Công việc găng "Sàn tầng 11-20" trễ 3 ngày',
+    desc: "Cần đẩy nhanh tiến độ thi công.",
+    time: "2 giờ trước",
+  },
+  {
+    tone: "orange",
+    icon: I.warn,
+    title: "Chu trình phụ thuộc bị chặn",
+    desc: 'Công việc "Lắp đặt MEP tầng 10-12" chưa thể bắt đầu do "Hoàn thiện trần tầng 9" chưa xong.',
+    time: "4 giờ trước",
+  },
+  {
+    tone: "orange",
+    icon: I.warn,
+    title: "Hạng mục hoàn thiện sắp vượt dự toán",
+    desc: "Đã sử dụng 85% ngân sách, cần kiểm soát chặt.",
+    time: "6 giờ trước",
+  },
+  {
+    tone: "blue",
+    icon: I.info,
+    title: "Nhật ký ngoại tuyến còn 5 mục chưa đồng bộ",
+    desc: "Vui lòng kiểm tra kết nối và đồng bộ dữ liệu.",
+    time: "1 ngày trước",
+  },
+  {
+    tone: "blue",
+    icon: I.info,
+    title: "Ảnh hiện trường thiếu siêu dữ liệu",
+    desc: "Có 12 ảnh thiếu thông tin vị trí, thời gian. Đánh dấu nghi vấn.",
+    time: "1 ngày trước",
+  },
+];
+
+const ROLES = [
+  { name: "Ban quản lý", count: 6, color: "#1988ff" },
+  { name: "Chủ đầu tư", count: 4, color: "#ff8500" },
+  { name: "Chỉ huy trưởng", count: 3, color: "#17b26a" },
+  { name: "Kỹ sư giám sát", count: 8, color: "#8b5cf6" },
+  { name: "Đội trưởng", count: 5, color: "#f97316" },
+  { name: "Kế toán", count: 2, color: "#f0a7c0" },
+];
+
+/* ---------------- small components ---------------- */
+function Donut({
+  value,
+  size = 46,
+  stroke = 7,
+  color = "#17b26a",
+}) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e9eef5" strokeWidth={stroke} />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={`${(c * value) / 100} ${c}`}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+    </svg>
+  );
+}
+
+function RoleDonut() {
+  const total = ROLES.reduce((s, r) => s + r.count, 0);
+  const size = 150;
+  const stroke = 24;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <div style={{ position: "relative", width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+        {ROLES.map((role, index) => {
+          const len = (c * role.count) / total;
+          const offset = (c * ROLES.slice(0, index).reduce((sum, entry) => sum + entry.count, 0)) / total;
+          return (
+            <circle
+              key={role.name}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={role.color}
+              strokeWidth={stroke}
+              strokeDasharray={`${len - 2} ${c - len + 2}`}
+              strokeDashoffset={-offset}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          );
+        })}
+      </svg>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <strong style={{ fontSize: 22 }}>{total}</strong>
+        <span style={{ fontSize: 11, color: "#667085" }}>thành viên</span>
+      </div>
     </div>
   );
 }
 
-function Home() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
+function CostChart() {
+  const max = 40;
   return (
-    <div className="xds" id="top">
-      {/* ---------- Header ---------- */}
-      <header className="xds-header">
-        <div className="xds-wrap xds-header__inner">
-          <Logo />
-          <nav className="xds-nav">
-            {NAV.map((item, i) => (
-              <a key={item.label} href={item.href} className={i === 0 ? "is-active" : ""}>
-                {item.label}
-              </a>
-            ))}
-          </nav>
-          <div className="xds-header__actions">
-            <label className="xds-search">
-              <span>🔍</span>
-              <input type="search" placeholder="Tìm kiếm dự án, tài liệu..." aria-label="Tìm kiếm" />
-            </label>
-            <Link to="/login" className="xds-btn xds-btn--outline">
-              Đăng nhập
-            </Link>
-            <Link to="/register" className="xds-btn xds-btn--orange">
-              Dùng thử ngay →
-            </Link>
-            <button
-              className="xds-burger"
-              aria-label="Mở menu"
-              onClick={() => setMenuOpen((v) => !v)}
+    <div className="xds-chart">
+      <div className="xds-chart-legend">
+        <span>
+          <i style={{ background: "#1988ff" }} />
+          Dự toán
+        </span>
+        <span>
+          <i style={{ background: "#ff8500" }} />
+          Thực tế
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            fontSize: 10,
+            color: "#98a2b3",
+            height: 130,
+            paddingBottom: 18,
+          }}
+        >
+          {[40, 30, 20, 10, 0].map((t) => (
+            <span key={t}>{t}</span>
+          ))}
+        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "flex-end", gap: 8, height: 130 }}>
+          {COSTS.map((item) => (
+            <div
+              key={item.name}
+              style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}
             >
-              ☰
-            </button>
-          </div>
-        </div>
-        <div className="xds-wrap">
-          <nav className={"xds-mobile-nav" + (menuOpen ? " is-open" : "")}>
-            {NAV.map((item) => (
-              <a key={item.label} href={item.href} onClick={() => setMenuOpen(false)}>
-                {item.label}
-              </a>
-            ))}
-            <div className="xds-mobile-nav__cta">
-              <Link to="/login" className="xds-btn xds-btn--outline">
-                Đăng nhập
-              </Link>
-              <Link to="/register" className="xds-btn xds-btn--orange">
-                Dùng thử
-              </Link>
-            </div>
-          </nav>
-        </div>
-      </header>
-
-      {/* ---------- Hero ---------- */}
-      <section className="xds-hero">
-        <div className="xds-hero__bg" />
-        <div className="xds-hero__veil" />
-        <div className="xds-wrap xds-hero__inner">
-          <div>
-            <p className="xds-eyebrow">Nền tảng điều hành thi công công trình</p>
-            <h1>
-              Điều hành thi công công trình
-              <br />
-              <span>thông minh, tập trung và hiệu quả</span>
-            </h1>
-            <p className="xds-hero__desc">
-              Quản lý toàn diện dự án, tiến độ, nhân sự, vật tư, an toàn và báo cáo
-              trên một nền tảng duy nhất. Giúp doanh nghiệp xây dựng vận hành hiệu
-              quả, tiết kiệm thời gian và tối ưu chi phí.
-            </p>
-            <div className="xds-hero__cta">
-              <Link to="/register" className="xds-btn xds-btn--orange xds-btn--lg">
-                Bắt đầu ngay →
-              </Link>
-              <a href="#tien-do" className="xds-btn xds-btn--ghost xds-btn--lg">
-                ▶ Xem demo
-              </a>
-            </div>
-            <ul className="xds-benefits">
-              {BENEFITS.map((b) => (
-                <li key={b}>
-                  <span className="xds-tick">✓</span>
-                  {b}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Dashboard mockup */}
-          <div className="xds-dash" id="tien-do">
-            <aside className="xds-dash__side">
-              <div className="xds-dash__brand">
-                <i />
-                XÂY DỰNG SỐ
-              </div>
-              <ul>
-                {DASH_MENU.map((m, i) => (
-                  <li key={m} className={i === 0 ? "is-active" : ""}>
-                    <i />
-                    {m}
-                  </li>
-                ))}
-              </ul>
-            </aside>
-            <div className="xds-dash__main">
-              <div className="xds-dash__topbar">
-                <h4>Tổng quan</h4>
-                <div className="xds-dash__user">
-                  <span>🔔</span>
-                  <span className="xds-dash__avatar">NM</span>
-                  <span>Nguyễn Văn Minh</span>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 112, width: "100%" }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                  <span style={{ fontSize: 9, textAlign: "center", color: "#475467" }}>{item.plan}</span>
+                  <div
+                    style={{
+                      height: `${(item.plan / max) * 100}%`,
+                      background: "#1988ff",
+                      borderRadius: "3px 3px 0 0",
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                  <span style={{ fontSize: 9, textAlign: "center", color: "#475467" }}>{item.real}</span>
+                  <div
+                    style={{
+                      height: `${(item.real / max) * 100}%`,
+                      background: "#ff8500",
+                      borderRadius: "3px 3px 0 0",
+                    }}
+                  />
                 </div>
               </div>
+              <span
+                style={{
+                  fontSize: 9,
+                  color: "#667085",
+                  textAlign: "center",
+                  lineHeight: 1.15,
+                  minHeight: 22,
+                }}
+              >
+                {item.name}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-              <div className="xds-dash__kpis">
-                {DASH_KPIS.map((k) => (
-                  <div className="xds-kpi" key={k.label}>
-                    <div className="xds-kpi__label">{k.label}</div>
-                    <div className="xds-kpi__row">
-                      <span className="xds-kpi__value">{k.value}</span>
-                      <span
-                        className="xds-kpi__ico"
-                        style={{ background: k.bg, color: k.color }}
-                      >
-                        {k.icon}
+/* ---------------- page ---------------- */
+export default function Home() {
+  const { search } = useLocation();
+  const membersProjectId = new URLSearchParams(search).get("projectId");
+  const projects = useRemote("/projects");
+  const selectedProject = projects.data?.projects.find((project) => project.id === Number(membersProjectId));
+  return (
+    <div className="xds-dashboard">
+      {/* SIDEBAR */}
+      <aside className="xds-sidebar">
+        <div className="xds-brand">
+          <span className="xds-brand-logo">
+            <Icon d={I.building} size={20} color="#1988ff" />
+          </span>
+          <span className="xds-brand-text">
+            <div className="xds-brand-name">XÂY DỰNG SỐ</div>
+            <div className="xds-brand-sub">Nền tảng điều hành thi công công trình</div>
+          </span>
+        </div>
+
+        <nav className="xds-nav">
+          {MENU.map((item) =>
+            item.to ? (
+              <Link
+                key={item.label}
+                to={scopedLink(item.to, membersProjectId)}
+                className={`xds-nav-item${item.active ? " is-active" : ""}`}
+              >
+                <Icon d={item.icon} />
+                <span>{item.label}</span>
+                {item.badge ? <span className="xds-nav-badge">{item.badge}</span> : null}
+              </Link>
+            ) : (
+              <button key={item.label} type="button" className="xds-nav-item">
+                <Icon d={item.icon} />
+                <span>{item.label}</span>
+                {item.badge ? <span className="xds-nav-badge">{item.badge}</span> : null}
+              </button>
+            ),
+          )}
+        </nav>
+
+        <button type="button" className="xds-collapse">
+          <Icon d={I.collapse} size={16} />
+          <span>Thu gọn</span>
+        </button>
+      </aside>
+
+      {/* MAIN */}
+      <div className="xds-main">
+        <header className="xds-topbar">
+          <div className="xds-topbar-left">
+            <span className="xds-topbar-label">Dự án hiện tại:</span>
+            <Link className="xds-select" to={scopedLink("/projects", membersProjectId)}>
+              {selectedProject?.name || "Chọn dự án"}
+              <Icon d={I.chevronD} size={16} color="#667085" />
+            </Link>
+          </div>
+
+          <div className="xds-search">
+            <Icon d={I.search} size={16} color="#98a2b3" />
+            <input placeholder="Tìm kiếm hạng mục, công việc, thành viên..." />
+            <span className="xds-kbd">Ctrl + K</span>
+          </div>
+
+          <div className="xds-topbar-right">
+            <button type="button" className="xds-icon-btn" aria-label="Thông báo">
+              <Icon d={I.bell} size={20} color="#1988ff" />
+              <span className="xds-dot-badge">5</span>
+            </button>
+            <button type="button" className="xds-icon-btn">
+              <Icon d={I.help} size={19} />
+              Trợ giúp
+            </button>
+            <div className="xds-user">
+              <img src={avatarMinh} alt="Nguyễn Văn Minh" width={816} height={816} loading="lazy" />
+              <div>
+                <div className="xds-user-name">Nguyễn Văn Minh</div>
+                <div className="xds-user-role">Quản lý dự án</div>
+              </div>
+              <Icon d={I.chevronD} size={16} color="#98a2b3" />
+            </div>
+          </div>
+        </header>
+
+        <main className="xds-content">
+          {/* KPI */}
+          <section className="xds-kpis">
+            {KPIS.map((k) => (
+              <div className="xds-card xds-kpi" key={k.label}>
+                {k.donut ? (
+                  <div className="xds-donut-sm">
+                    <Donut value={k.donut} />
+                  </div>
+                ) : (
+                  <span className="xds-kpi-icon" style={{ background: k.bg }}>
+                    <Icon d={k.icon} size={21} color={k.color ?? "#1988ff"} />
+                  </span>
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <div className="xds-kpi-label">{k.label}</div>
+                  <div className="xds-kpi-value">
+                    {k.value}
+                    <span className={`xds-trend ${k.down ? "down" : "up"}`}>↑ {k.trend}</span>
+                  </div>
+                  <div className="xds-kpi-note">{k.note}</div>
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {/* ROW 1 */}
+          <section className="xds-row-1">
+            {/* A. Tổng quan dự án */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Tổng quan dự án</h2>
+                <button type="button" className="xds-link-btn">
+                  Xem chi tiết tại dự án →
+                </button>
+              </div>
+              <div className="xds-card-body">
+                <div className="xds-project-grid">
+                  <img
+                    className="xds-project-hero"
+                    src={heroImg}
+                    alt="Chung cư Riverside"
+                    width={944}
+                    height={704}
+                  />
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <h3 className="xds-project-name">Chung cư Riverside</h3>
+                      <span className="xds-badge red">Chậm tiến độ</span>
+                    </div>
+                    <div className="xds-muted" style={{ marginTop: 4 }}>
+                      Khu căn hộ cao tầng ven sông Sài Gòn
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+                      <span className="xds-muted">Giai đoạn hiện tại</span>
+                      <span className="xds-badge blue">Thi công phần thân</span>
+                    </div>
+                    <div className="xds-muted" style={{ marginTop: 10 }}>
+                      Tiến độ hoàn thành
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5 }}>
+                      <div className="xds-progress" style={{ flex: 1 }}>
+                        <span style={{ width: "68%" }} />
+                      </div>
+                      <strong style={{ fontSize: 13 }}>68%</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 9, marginTop: 12 }}>
+                  <div className="xds-date-box">
+                    <Icon d={I.calendar} size={18} color="#1988ff" />
+                    <div>
+                      <div className="xds-date-label">Ngày hoàn thành theo kế hoạch</div>
+                      <div className="xds-date-value">30/09/2025</div>
+                    </div>
+                  </div>
+                  <div className="xds-date-box">
+                    <Icon d={I.calendar} size={18} color="#ef4444" />
+                    <div>
+                      <div className="xds-date-label">Ngày hoàn thành dự kiến</div>
+                      <div className="xds-date-value red">03/10/2025</div>
+                      <span className="xds-badge red" style={{ marginTop: 4 }}>
+                        Trễ 3 ngày
                       </span>
                     </div>
-                    <div className="xds-kpi__delta">{k.delta}</div>
                   </div>
-                ))}
+                </div>
+
+                <div className="xds-people">
+                  {[
+                    ["Chủ đầu tư", "Công ty CP Đầu tư Riverside"],
+                    ["Ban quản lý", "Ban QLDA Riverside"],
+                    ["Chỉ huy trưởng", "Trần Văn Hùng"],
+                  ].map(([role, name]) => (
+                    <div className="xds-person" key={role}>
+                      <span className="xds-avatar-box">
+                        <Icon d={I.user} size={16} />
+                      </span>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="xds-person-role">{role}</div>
+                        <div className="xds-person-name">{name}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </article>
+
+            {/* B. Tiến độ & đường găng */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Tiến độ &amp; đường găng</h2>
+                <span className="xds-badge red">⚠ 1 công việc găng trễ 3 ngày</span>
+              </div>
+              <div className="xds-legend">
+                <span>
+                  <i style={{ background: "#3b9bff" }} />
+                  Công việc thường
+                </span>
+                <span>
+                  <i style={{ background: "#ff8500" }} />
+                  Công việc găng
+                </span>
+                <span>
+                  <i style={{ background: "#37c48a" }} />
+                  Đã hoàn thành
+                </span>
+                <span>
+                  <i style={{ background: "#1988ff" }} />
+                  Đang thực hiện
+                </span>
+                <span>
+                  <i style={{ background: "#cfd7e3" }} />
+                  Chưa bắt đầu
+                </span>
               </div>
 
-              <div className="xds-dash__grid">
-                <div className="xds-panel">
-                  <div className="xds-panel__head">
-                    Chi phí &amp; Tiến độ theo tháng<span>2026</span>
+              <div className="xds-gantt">
+                <div className="xds-gantt-left">
+                  <div className="xds-gantt-head">Hạng mục / Công việc</div>
+                  {GANTT.map((row) => (
+                    <div
+                      key={row.name}
+                      className={`xds-gantt-row${row.child ? " child" : ""}${row.critical ? " critical" : ""}`}
+                    >
+                      {row.caret ? (
+                        <Icon d={row.caret === "down" ? I.chevronD : I.chevronR} size={11} color="#98a2b3" />
+                      ) : null}
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {row.name}
+                      </span>
+                      {row.pct ? <span className="pct">{row.pct}</span> : null}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="xds-gantt-right">
+                  <div className="xds-gantt-head xds-gantt-months">
+                    <div>Tháng 6/2025</div>
+                    <div>Tháng 7/2025</div>
+                    <div>Tháng 8/2025</div>
+                    <div>Tháng 9/2025</div>
                   </div>
-                  <div className="xds-chart">
-                    {CHART.map((pair, i) => (
-                      <div className="xds-chart__col" key={i}>
-                        <span className="xds-chart__bar" style={{ height: pair[0] + "%" }} />
-                        <span
-                          className="xds-chart__bar xds-chart__bar--light"
-                          style={{ height: pair[1] + "%" }}
+                  <div className="xds-gantt-grid">
+                    <div />
+                    <div />
+                    <div />
+                    <div />
+                  </div>
+                  <div className="xds-gantt-bars">
+                    {GANTT.map((row) => (
+                      <div className="xds-bar-row" key={row.name}>
+                        <div
+                          className={`xds-bar ${row.bar.type}`}
+                          style={{ left: `${row.bar.l}%`, width: `${row.bar.w}%` }}
                         />
                       </div>
                     ))}
+                    <div className="xds-today" style={{ left: "60%" }}>
+                      <span>Hôm nay</span>
+                    </div>
                   </div>
-                  <div className="xds-chart__axis">
-                    {CHART.map((_, i) => (
-                      <span key={i}>T{i + 1}</span>
+                </div>
+              </div>
+            </article>
+
+            {/* C. Công việc sắp đến hạn */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Công việc sắp đến hạn</h2>
+                <button type="button" className="xds-link-btn">
+                  Xem tất cả
+                </button>
+              </div>
+              <div className="xds-table-wrap">
+                <table className="xds-table">
+                  <thead>
+                    <tr>
+                      <th>Công việc</th>
+                      <th>Ngày bắt đầu</th>
+                      <th>Ngày kết thúc</th>
+                      <th>Phụ trách</th>
+                      <th>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TASKS.map((t) => (
+                      <tr key={t[0]}>
+                        <td style={{ fontWeight: 600 }}>{t[0]}</td>
+                        <td>{t[1]}</td>
+                        <td className={t[5] === "orange" ? "date-red" : ""}>{t[2]}</td>
+                        <td>{t[3]}</td>
+                        <td>
+                          <span className={`xds-badge ${t[5]}`}>{t[4]}</span>
+                        </td>
+                      </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          {/* ROW 2 */}
+          <section className="xds-row-2">
+            {/* Nhật ký công trường */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Nhật ký công trường</h2>
+                <button type="button" className="xds-link-btn">
+                  Xem tất cả
+                </button>
+              </div>
+              <div className="xds-card-body" style={{ paddingTop: 0 }}>
+                {LOGS.map((log, i) => (
+                  <div className="xds-log" key={`${log.title}-${i}`}>
+                    <img src={log.img} alt={log.title} width={816} height={816} loading="lazy" />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <div className="xds-log-title">{log.title}</div>
+                        <span className={`xds-badge ${log.tone}`} style={{ marginLeft: "auto" }}>
+                          {log.status}
+                        </span>
+                      </div>
+                      <div className="xds-log-meta">{log.meta}</div>
+                      <div className="xds-log-foot">
+                        <span>
+                          <Icon d={I.photo} size={12} /> {log.photos}
+                        </span>
+                        <span>|</span>
+                        <span>{log.place}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            {/* Nghiệm thu & thanh toán */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Nghiệm thu &amp; thanh toán</h2>
+                <button type="button" className="xds-link-btn">
+                  Xem chi tiết
+                </button>
+              </div>
+              <div className="xds-card-body" style={{ paddingTop: 0 }}>
+                <div className="xds-metric">
+                  <span className="xds-metric-icon" style={{ background: "#e8f2ff" }}>
+                    <Icon d={I.cube} size={17} color="#1988ff" />
+                  </span>
+                  <div>
+                    <div className="xds-metric-label">Khối lượng hợp đồng</div>
+                    <div className="xds-metric-value">25.000 m³</div>
+                  </div>
+                </div>
+                <div className="xds-metric">
+                  <span className="xds-metric-icon" style={{ background: "#e7f7ef" }}>
+                    <Icon d={I.check} size={17} color="#17b26a" />
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div className="xds-metric-label">Khối lượng lũy kế đã nghiệm thu</div>
+                    <div className="xds-metric-value">12.350 m³</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
+                      <div className="xds-progress green" style={{ flex: 1 }}>
+                        <span style={{ width: "49.4%" }} />
+                      </div>
+                      <strong style={{ fontSize: 12 }}>49,4%</strong>
+                    </div>
+                  </div>
+                </div>
+                <div className="xds-metric">
+                  <span className="xds-metric-icon" style={{ background: "#e5f6fd" }}>
+                    <Icon d={I.trend} size={17} color="#17b7e8" />
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div className="xds-metric-label">Tỷ lệ so với hợp đồng</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div className="xds-metric-value green">49,4%</div>
+                      <span className="xds-badge green" style={{ marginLeft: "auto" }}>
+                        Không vượt
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="xds-metric">
+                  <span className="xds-metric-icon" style={{ background: "#fff3e2" }}>
+                    <Icon d={I.money} size={17} color="#ff8500" />
+                  </span>
+                  <div>
+                    <div className="xds-metric-label">Giá trị đề nghị thanh toán kỳ này</div>
+                    <div className="xds-metric-value">8,5 tỷ VNĐ</div>
+                  </div>
+                </div>
+                <div className="xds-metric">
+                  <span className="xds-metric-icon" style={{ background: "#f1f4f8" }}>
+                    <Icon d={I.report} size={17} color="#566178" />
+                  </span>
+                  <div>
+                    <div className="xds-metric-label">Trạng thái hồ sơ</div>
+                    <span className="xds-badge blue" style={{ marginTop: 3 }}>
+                      Đang trình duyệt
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            {/* Chi phí & vật tư */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Chi phí &amp; vật tư</h2>
+                <button type="button" className="xds-link-btn">
+                  Xem chi tiết
+                </button>
+              </div>
+              <div className="xds-card-body" style={{ paddingTop: 10 }}>
+                <div className="xds-cost-grid">
+                  <div>
+                    <div className="xds-metric-label">Tổng dự toán</div>
+                    <div className="xds-metric-value">120 tỷ VNĐ</div>
+                  </div>
+                  <div>
+                    <div className="xds-metric-label">Chi phí thực tế</div>
+                    <div className="xds-metric-value">78,6 tỷ VNĐ</div>
+                  </div>
+                  <div>
+                    <div className="xds-metric-label">Tỷ lệ thực hiện</div>
+                    <div className="xds-metric-value">65,5%</div>
+                    <div className="xds-progress green" style={{ marginTop: 5 }}>
+                      <span style={{ width: "65.5%" }} />
+                    </div>
                   </div>
                 </div>
 
-                <div className="xds-panel">
-                  <div className="xds-panel__head">
-                    Công việc gần đây<span>Xem tất cả →</span>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 12 }}>
+                  Chi phí theo hạng mục (tỷ VNĐ)
+                </div>
+                <CostChart />
+
+                <div className="xds-alert-banner">
+                  <Icon d={I.warn} size={14} color="#ff8500" />
+                  <span>Hạng mục Phần hoàn thiện đã sử dụng 85% dự toán</span>
+                  <Icon d={I.chevronR} size={13} color="#c08a3e" />
+                </div>
+              </div>
+            </article>
+
+            {/* Cảnh báo / thông báo */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Cảnh báo / thông báo</h2>
+                <button type="button" className="xds-link-btn">
+                  Xem tất cả
+                </button>
+              </div>
+              <div className="xds-card-body" style={{ paddingTop: 0 }}>
+                {ALERTS.map((a) => (
+                  <div className="xds-alert" key={a.title}>
+                    <span
+                      className="xds-metric-icon"
+                      style={{
+                        background:
+                          a.tone === "red" ? "#fdecec" : a.tone === "orange" ? "#fff3e2" : "#e8f2ff",
+                        width: 28,
+                        height: 28,
+                        flex: "0 0 28px",
+                      }}
+                    >
+                      <Icon
+                        d={a.icon}
+                        size={15}
+                        color={a.tone === "red" ? "#ef4444" : a.tone === "orange" ? "#ff8500" : "#1988ff"}
+                      />
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div className={`xds-alert-title ${a.tone}`}>{a.title}</div>
+                      <div className="xds-alert-desc">{a.desc}</div>
+                      <div className="xds-alert-time">{a.time}</div>
+                    </div>
                   </div>
-                  <div className="xds-tasks">
-                    {DASH_TASKS.map((t) => (
-                      <div className="xds-task" key={t.title}>
-                        <i />
-                        <span>
-                          <strong>{t.title}</strong>
-                          <small>{t.meta}</small>
-                        </span>
+                ))}
+              </div>
+            </article>
+
+            {/* Người dùng theo vai trò */}
+            <article className="xds-card">
+              <div className="xds-card-head">
+                <h2 className="xds-card-title">Người dùng theo vai trò</h2>
+                <button type="button" className="xds-link-btn">
+                  Xem tất cả
+                </button>
+              </div>
+              <div className="xds-card-body">
+                <div className="xds-roles">
+                  <RoleDonut />
+                  <div className="xds-role-legend">
+                    {ROLES.map((r) => (
+                      <div key={r.name}>
+                        <i style={{ background: r.color }} />
+                        {r.name}
+                        <b>{r.count}</b>
                       </div>
                     ))}
                   </div>
                 </div>
-
-                <div className="xds-panel">
-                  <div className="xds-panel__head">Camera công trường</div>
-                  <div className="xds-cam">
-                    <img
-                      src="https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=600&q=60"
-                      alt="Camera giám sát công trường"
-                    />
-                    <span className="xds-cam__live">● Trực tiếp</span>
-                  </div>
-                  <div className="xds-cam__meta">
-                    <strong>Dự án The Matrix One</strong>
-                    14:32 · Hôm nay
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- Stats ---------- */}
-      <section className="xds-stats" id="bao-cao">
-        <div className="xds-wrap xds-stats__grid">
-          {STATS.map((s) => (
-            <article className="xds-stat" key={s.label}>
-              <span className="xds-stat__ico" style={{ background: s.bg, color: s.color }}>
-                {s.icon}
-              </span>
-              <div>
-                <div className="xds-stat__value">{s.value}</div>
-                <div className="xds-stat__label">{s.label}</div>
-                <div className={"xds-stat__delta" + (s.down ? " is-down" : "")}>{s.delta}</div>
               </div>
             </article>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* ---------- Features ---------- */}
-      <section className="xds-section" id="vat-tu">
-        <div className="xds-wrap">
-          <div className="xds-section__head">
-            <div>
-              <h2>Tính năng nổi bật</h2>
-              <p>
-                Đầy đủ công cụ để quản lý và điều hành thi công công trình hiệu quả
-                trên một nền tảng duy nhất.
-              </p>
-            </div>
-            <a className="xds-section__link" href="#lien-he">
-              Xem tất cả tính năng →
-            </a>
-          </div>
-          <div className="xds-features">
-            {FEATURES.map((f) => (
-              <article className="xds-feature" key={f.title}>
-                <span className="xds-feature__ico" style={{ background: f.bg, color: f.color }}>
-                  {f.icon}
-                </span>
-                <h3>{f.title}</h3>
-                <p>{f.desc}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- Projects ---------- */}
-      <section className="xds-section xds-section--soft" id="du-an">
-        <div className="xds-wrap">
-          <div className="xds-section__head">
-            <div>
-              <h2>Dự án tiêu biểu</h2>
-              <p>Đồng hành cùng nhiều doanh nghiệp xây dựng hàng đầu Việt Nam.</p>
-            </div>
-            <a className="xds-section__link" href="#lien-he">
-              Xem tất cả dự án →
-            </a>
-          </div>
-          <div className="xds-projects">
-            {PROJECTS.map((p) => (
-              <article className="xds-project" key={p.name}>
-                <div className="xds-project__media">
-                  <img src={p.img} alt={p.name} loading="lazy" />
-                  <span className={"xds-badge " + p.badge}>{p.status}</span>
-                </div>
-                <div className="xds-project__body">
-                  <h3>{p.name}</h3>
-                  <p className="xds-project__loc">📍 {p.place}</p>
-                  <div className="xds-progress">
-                    <span className="xds-progress__track">
-                      <span className="xds-progress__fill" style={{ width: p.pct + "%" }} />
-                    </span>
-                    <span className="xds-progress__pct">{p.pct}%</span>
-                  </div>
-                  <div className="xds-project__meta">
-                    <span>🏢 {p.type}</span>
-                    <span>🗓️ Hoàn thành: {p.due}</span>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- Process ---------- */}
-      <section className="xds-section" id="nhan-su">
-        <div className="xds-wrap">
-          <div className="xds-section__head">
-            <div>
-              <h2>Quy trình hoạt động</h2>
-              <p>5 bước đơn giản để triển khai và vận hành hiệu quả.</p>
-            </div>
-          </div>
-          <div className="xds-process">
-            {STEPS.map((s) => (
-              <article className="xds-step" key={s.num}>
-                <div className="xds-step__num">{s.num}</div>
-                <span className="xds-step__ico">{s.icon}</span>
-                <h3>{s.title}</h3>
-                <p>{s.desc}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- Trust ---------- */}
-      <section className="xds-section xds-section--soft" id="an-toan">
-        <div className="xds-wrap xds-trust">
-          <div>
-            <h2>
-              Được tin tưởng bởi
-              <br />
-              nhiều doanh nghiệp hàng đầu
-            </h2>
-            <p>
-              Hàng trăm nhà thầu, chủ đầu tư và ban quản lý dự án đã lựa chọn Xây
-              Dựng Số để đồng hành trong hành trình chuyển đổi số ngành xây dựng.
-            </p>
-          </div>
-          <div className="xds-logos">
-            {PARTNERS.map((p) => (
-              <div key={p}>{p}</div>
-            ))}
-          </div>
-          <blockquote className="xds-quote">
-            <p>
-              “Nền tảng giúp chúng tôi kiểm soát tiến độ, chi phí và an toàn tốt hơn.
-              Hệ thống dễ sử dụng, phù hợp với đặc thù ngành xây dựng tại Việt Nam.”
-            </p>
-            <div className="xds-quote__who">
-              <span className="xds-quote__ava">QH</span>
-              <span>
-                <strong>Nguyễn Quốc Hùng</strong>
-                <small>Giám đốc Ban Quản lý Dự án</small>
-                <span className="xds-stars">★★★★★</span>
-              </span>
-            </div>
-          </blockquote>
-        </div>
-      </section>
-
-      {/* ---------- CTA ---------- */}
-      <section className="xds-cta">
-        <div className="xds-wrap xds-cta__inner">
-          <div>
-            <h2>Sẵn sàng số hóa công trường của bạn?</h2>
-            <p>
-              Dùng thử miễn phí, không cần thẻ tín dụng. Đội ngũ của chúng tôi sẽ
-              đồng hành triển khai cho dự án đầu tiên.
-            </p>
-          </div>
-          <div className="xds-cta__actions">
-            <Link to="/register" className="xds-btn xds-btn--orange xds-btn--lg">
-              Dùng thử ngay →
-            </Link>
-            <Link to="/login" className="xds-btn xds-btn--white xds-btn--lg">
-              Đăng nhập
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ---------- Footer ---------- */}
-      <footer className="xds-footer" id="lien-he">
-        <div className="xds-wrap">
-          <div className="xds-footer__grid">
-            <div className="xds-footer__about">
-              <Logo orange />
-              <p>
-                Nền tảng điều hành thi công công trình hàng đầu Việt Nam. Đồng hành
-                cùng doanh nghiệp xây dựng trong kỷ nguyên số.
-              </p>
-              <div className="xds-socials">
-                <a href="#lien-he" aria-label="Facebook">f</a>
-                <a href="#lien-he" aria-label="YouTube">▶</a>
-                <a href="#lien-he" aria-label="LinkedIn">in</a>
-                <a href="#lien-he" aria-label="Zalo">Z</a>
-              </div>
-            </div>
-            <div>
-              <h4>Sản phẩm</h4>
-              <ul>
-                <li><a href="#tien-do">Tổng quan</a></li>
-                <li><a href="#tien-do">Tiến độ</a></li>
-                <li><a href="#du-an">Khách hàng</a></li>
-                <li><a href="#vat-tu">Cập nhật mới</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4>Hỗ trợ</h4>
-              <ul>
-                <li><a href="#lien-he">Trung tâm trợ giúp</a></li>
-                <li><a href="#lien-he">Hướng dẫn sử dụng</a></li>
-                <li><a href="#lien-he">Liên hệ hỗ trợ</a></li>
-                <li><a href="#lien-he">Chính sách bảo mật</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4>Liên hệ</h4>
-              <ul>
-                <li>📍 Hà Nội, Việt Nam</li>
-                <li>📞 1900 0000</li>
-                <li>✉️ info@xaydungso.vn</li>
-              </ul>
-            </div>
-            <div className="xds-news">
-              <h4>Đăng ký nhận tin</h4>
-              <p style={{ fontSize: 13 }}>Cập nhật mới về thi công và quản lý dự án.</p>
-              <form onSubmit={(e) => e.preventDefault()}>
-                <input type="email" placeholder="Nhập email của bạn" aria-label="Email" />
-                <button type="submit" className="xds-btn xds-btn--orange">Đăng ký</button>
-              </form>
-            </div>
-          </div>
-          <div className="xds-footer__bottom">
-            <span>© 2026 Xây Dựng Số. Tất cả quyền được bảo lưu.</span>
-            <ul>
-              <li><a href="#lien-he">Điều khoản sử dụng</a></li>
-              <li><a href="#lien-he">Chính sách bảo mật</a></li>
-              <li><a href="#top">Sitemap</a></li>
-            </ul>
-          </div>
-        </div>
-      </footer>
+          {/* QUICK ACTIONS */}
+          <section className="xds-card xds-quick">
+            <span className="xds-quick-title">
+              <Icon d={I.bolt} size={17} color="#ff8500" />
+              Thao tác nhanh
+            </span>
+            <button type="button" className="xds-btn primary">
+              <Icon d={I.plus} size={16} />
+              Tạo dự án
+            </button>
+            <button type="button" className="xds-btn">
+              <Icon d={I.folder} size={16} color="#667085" />
+              Thêm hạng mục
+            </button>
+            <button type="button" className="xds-btn">
+              <Icon d={I.trend} size={16} color="#1988ff" />
+              Cập nhật tiến độ
+            </button>
+            <button type="button" className="xds-btn">
+              <Icon d={I.journal} size={16} color="#667085" />
+              Ghi nhật ký
+            </button>
+            <button type="button" className="xds-btn">
+              <Icon d={I.check} size={16} color="#1988ff" />
+              Lập phiếu nghiệm thu
+            </button>
+            <button type="button" className="xds-btn warn">
+              <Icon d={I.money} size={16} />
+              Tạo đề nghị thanh toán
+            </button>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }
-
-export default Home;

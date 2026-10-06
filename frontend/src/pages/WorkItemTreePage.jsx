@@ -1,0 +1,117 @@
+import { useEffect, useState } from "react";
+import { Alert, Button, Form, Input, message } from "antd";
+import { Link, useSearchParams } from "react-router-dom";
+import WorkItemTree from "../components/WorkItemTree";
+import TaskForm from "../components/TaskForm";
+import { listTasks, listDependencies, saveTask } from "../services/taskApi";
+import { createWorkItem, deleteWorkItem, listWorkItems, updateWorkItem } from "../services/workItemApi";
+import "../styles/WorkItemTreePage.css";
+import DashboardLayout from "../components/DashboardLayout";
+import { Empty, NoProject, Modal } from "../components/OperationsUI";
+import { Skeleton, SectionHeading, StatusDistribution } from "../components/OperationsVisuals";
+import Icon from "../components/OperationsIcon";
+import { validProjectId } from "../services/navigation";
+
+function ProjectWorkItems({ projectId }) {
+    const [items, setItems] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [dependencies, setDependencies] = useState([]);
+    const [taskEditor, setTaskEditor] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [parentId, setParentId] = useState(null);
+    const [selectedId, setSelectedId] = useState(null);
+    const [form] = Form.useForm();
+
+    useEffect(() => {
+        let active = true;
+        Promise.all([listWorkItems(projectId), listTasks(projectId), listDependencies(projectId)])
+            .then(([nextItems, nextTasks, nextDependencies]) => {
+                if (active) {
+                    setItems(nextItems);
+                    setTasks(nextTasks);
+                    setDependencies(nextDependencies);
+                    setTaskEditor(null);
+                    setError("");
+                }
+            })
+            .catch((requestError) => {
+                if (active) {
+                    setError(requestError.response?.data?.message || "Không thể tải cây hạng mục");
+                }
+            })
+            .finally(() => {
+                if (active) setLoading(false);
+            });
+
+        return () => { active = false; };
+    }, [projectId]);
+
+    const save = async (itemId, values) => {
+        try {
+            if (itemId) await updateWorkItem(projectId, itemId, values);
+            else await createWorkItem(projectId, { ...values, parentId });
+            setParentId(null);
+            form.resetFields();
+            setItems(await listWorkItems(projectId));
+        } catch (requestError) {
+            message.error(requestError.response?.data?.message || "Không thể lưu hạng mục");
+        }
+    };
+
+    const remove = async (item) => {
+        try {
+            await deleteWorkItem(projectId, item.id);
+            setItems(await listWorkItems(projectId));
+        } catch (requestError) {
+            message.error(requestError.response?.data?.message || "Không thể xóa hạng mục");
+        }
+    };
+
+    const persistTask = async (taskId, values) => {
+        const saved = await saveTask(projectId, taskId, values);
+        setTasks((current) => taskId
+            ? current.map((entry) => entry.id === saved.id ? saved : entry)
+            : [...current, saved]);
+        setTaskEditor(saved);
+        message.success("Đã lưu công việc");
+    };
+
+    const selected = items.find((item) => item.id === selectedId);
+    const selectedTasks = tasks.filter((task) => task.work_item_id === selectedId);
+    return (
+        <div className="work-items-page">
+            <div className="wbs-overview"><section className="ops-card wbs-project-summary"><SectionHeading icon="building" title="Cấu trúc phân rã công việc" description={`Dự án #${projectId} · Hạng mục → Hạng mục con → Công việc`} /><div className="wbs-summary-counts"><div><strong>{loading ? "—" : items.length}</strong><span>Hạng mục</span></div><div><strong>{loading ? "—" : tasks.length}</strong><span>Công việc</span></div><div><strong>{loading ? "—" : dependencies.length}</strong><span>Quan hệ phụ thuộc</span></div></div><Link className="wbs-schedule-link" to={`/schedule?projectId=${projectId}`}>Xem tiến độ công việc <Icon name="arrow" size={16} /></Link></section><section className="ops-card"><StatusDistribution title="Trạng thái hạng mục" entries={[["todo","Chưa thực hiện","#a6b4c8"],["doing","Đang thực hiện","#1677ff"],["done","Hoàn thành","#17b26a"]].map(([status,label,color])=>({label,color,value:items.filter((item)=>item.status===status).length}))} label="Hạng mục" /></section></div>
+            <section className="ops-card work-items-panel">
+                <SectionHeading icon="tree" title="Cây hạng mục" description="Chọn tên hạng mục để xem chi tiết và các công việc bên trong." action={<Button onClick={() => setParentId(null)}><Icon name="plus" size={15} />Thêm hạng mục gốc</Button>} />
+                <div className="wbs-create"><span>{parentId !== null ? `Thêm vào: ${items.find((item)=>item.id===parentId)?.title || "Hạng mục con"}` : "Thêm hạng mục gốc"}</span>
+                <Form form={form} layout="inline" onFinish={(values) => save(null, values)}>
+                    <Form.Item name="title" rules={[{ required: true, message: "Nhập tên hạng mục" }]}>
+                        <Input placeholder="Tên hạng mục mới" />
+                    </Form.Item>
+                    <Button type="primary" htmlType="submit">Tạo</Button>
+                </Form>
+                </div>
+                {error && <Alert type="error" message={error} />}
+                {loading ? <Skeleton /> : !items.length ? <Empty icon="tree" title="Bắt đầu từ hạng mục đầu tiên">Tạo hạng mục gốc, sau đó thêm hạng mục con và công việc để xây dựng cấu trúc dự án.</Empty> : <div className="wbs-tree-scroll" role="region" aria-label="Cấu trúc hạng mục" tabIndex={0}><WorkItemTree items={items} tasks={tasks}
+                    onSelect={setSelectedId} selectedId={selectedId}
+                    onAddTask={(work_item_id) => setTaskEditor({ work_item_id })} onEditTask={setTaskEditor}
+                    onSave={save} onDelete={remove}
+                    onAdd={(id) => { setParentId(id); form.getFieldInstance("title")?.focus(); }} /></div>}
+                <footer className="wbs-tree-footer"><span><Icon name="folder" size={14} /> Hạng mục</span><span><Icon name="task" size={14} /> Công việc</span><span>{items.length} hạng mục · {tasks.length} công việc</span></footer>
+                {selected && <Modal title={selected.title} subtitle="Chi tiết hạng mục" variant="drawer" onClose={()=>setSelectedId(null)}><dl className="ops-details-list"><dt>Trạng thái</dt><dd>{{todo:"Chưa thực hiện",doing:"Đang thực hiện",done:"Hoàn thành"}[selected.status] || selected.status}</dd><dt>Hạng mục cha</dt><dd>{items.find((item)=>item.id===selected.parent_id)?.title || "Hạng mục gốc"}</dd><dt>Hạng mục con</dt><dd>{items.filter((item)=>item.parent_id===selected.id).length}</dd><dt>Công việc trực tiếp</dt><dd>{selectedTasks.length}</dd></dl><h3>Công việc trong hạng mục</h3>{selectedTasks.length ? <div className="wbs-detail-tasks">{selectedTasks.map((task)=><button key={task.id} onClick={()=>{setSelectedId(null);setTaskEditor(task);}}><Icon name="task" /><span><strong>{task.name}</strong><small>{task.duration_days} ngày{task.planned_quantity != null ? ` · ${Number(task.planned_quantity).toLocaleString("vi-VN")} ${task.quantity_unit || ""}` : ""}</small></span><Icon name="right" size={16} /></button>)}</div> : <Empty icon="task">Chưa có công việc trực tiếp trong hạng mục này.</Empty>}</Modal>}
+                {taskEditor && <TaskForm key={`${projectId}-${taskEditor.id || "new"}`} projectId={projectId}
+                    task={taskEditor} items={items} tasks={tasks} dependencies={dependencies}
+                    onSave={persistTask} onClose={() => setTaskEditor(null)}
+                    onDependencyAdded={(dependency) => setDependencies((current) => [...current, dependency])}
+                    onDependencyRemoved={(id) => setDependencies((current) => current.filter((entry) => entry.id !== id))} />}
+            </section>
+        </div>
+    );
+}
+
+export default function WorkItemTreePage() {
+    const [params] = useSearchParams();
+    const projectId = params.get("projectId");
+    return <DashboardLayout title="Cây hạng mục" description="Quản lý hạng mục, công việc và quan hệ phụ thuộc.">{validProjectId(projectId) ? <ProjectWorkItems key={projectId} projectId={Number(projectId)} /> : <NoProject />}</DashboardLayout>;
+}

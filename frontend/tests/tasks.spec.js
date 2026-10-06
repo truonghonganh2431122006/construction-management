@@ -17,6 +17,9 @@ async function mockProject(page) {
         const path = new URL(req.url()).pathname;
         const method = req.method();
         const body = req.postDataJSON();
+        // The shared header has its own feed; keep the existing no-N+1
+        // assertions scoped to the work-item/task/dependency data below.
+        if (path.endsWith("/notifications")) return route.fulfill({ json: { notifications: [], unread_count: 0 } });
         calls.push({ path, method, body });
         const json = (data, status = 200) => route.fulfill({ status, json: data });
         if (method === "GET") {

@@ -20,6 +20,7 @@ function createProjectAccess({ memberModel }) {
                 return res.status(403).json({ message: "Bạn không có quyền truy cập dự án này" });
             }
 
+            req.projectMember = member;
             return next();
         };
     }

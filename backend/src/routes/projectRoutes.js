@@ -20,7 +20,7 @@ function createProjectRoutes({ authorization = { requireAuth }, memberModel } = 
     registerProjectRoute(router, {
         method: "get",
         path: "/:projectId",
-        roles: ["admin", "manager", "engineer", "member"],
+        roles: ["admin", "manager", "engineer", "member", "project_manager", "worker", "accountant", "viewer"],
         projectAccess,
         handler: (req, res) => res.json({ projectId: Number(req.params.projectId) })
     });

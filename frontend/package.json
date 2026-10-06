@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "playwright test",
+    "test:pwa": "npm run build && playwright test --config playwright.pwa.config.js",
     "preview": "vite preview"
   },
   "dependencies": {

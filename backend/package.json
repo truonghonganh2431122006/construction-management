@@ -8,6 +8,7 @@
     "dev": "node --watch src/server.js",
     "lint": "eslint . --max-warnings=0",
     "test": "jest --runInBand",
+    "test:postgres": "node scripts/test-postgres.cjs",
     "migrate": "node src/run-migration.js up",
     "migrate:rollback": "node src/run-migration.js down",
     "migrate:status": "node src/run-migration.js status",
@@ -24,10 +25,15 @@
   "dependencies": {
     "argon2": "^0.45.1",
     "connect-pg-simple": "^10.0.0",
+    "csv-parse": "^7.0.3",
     "dotenv": "^18.0.3",
+    "exifr": "^7.1.3",
     "express": "^5.2.1",
     "express-session": "^1.19.0",
-    "pg": "^8.23.0"
+    "nodemailer": "^10.0.14",
+    "pdfkit": "^0.20.2",
+    "pg": "^8.23.0",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

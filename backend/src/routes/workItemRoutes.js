@@ -17,7 +17,7 @@ function createWorkItemRoutes({ authorization = { requireAuth }, memberModel, mo
     const controller = createWorkItemController({ model });
     router.use(authorization.requireAuth);
     router.use("/:projectId/items", projectAccess.requireProjectMember(
-        "admin", "manager", "engineer", "member"
+        "admin", "manager", "engineer", "member", "project_manager"
     ));
     router.get("/:projectId/items", controller.list);
     router.post("/:projectId/items", controller.create);

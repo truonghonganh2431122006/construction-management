@@ -16,6 +16,9 @@ export default defineConfig({
     webServer: {
         command: "npm run dev -- --host 127.0.0.1 --port 5175 --strictPort",
         url: "http://127.0.0.1:5175",
+        env: {
+            VITE_ENABLE_JOURNAL_SW: process.env.OPERATIONS_REAL_E2E ? "1" : ""
+        },
         reuseExistingServer: !process.env.CI
     }
 });

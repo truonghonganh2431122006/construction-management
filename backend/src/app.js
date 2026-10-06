@@ -8,6 +8,8 @@ const { createProjectRoutes } = require("./routes/projectRoutes");
 const { createWorkItemRoutes } = require("./routes/workItemRoutes");
 const { createTaskRoutes } = require("./routes/taskRoutes");
 const { createScheduleRoutes } = require("./routes/scheduleRoutes");
+const { createProjectOperationsRoutes } = require("./routes/projectOperationsRoutes");
+const { createSiteManagementRoutes } = require("./routes/siteManagementRoutes");
 const corsMiddleware = require("./middleware/cors");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -22,11 +24,15 @@ function createApp({ authService, sessionStore, sessionSecret, secureCookies, tr
     app.use(corsMiddleware);
     app.set("trust proxy", trustProxy ?? (process.env.TRUST_PROXY === "1" ? 1 : false));
     const session = createSession({ store: sessionStore, secret: sessionSecret, secureCookies });
+    app.use("/projects/:projectId/photos", express.json({ limit: "15mb" }));
+    app.use("/projects/:projectId/costs/import", express.json({ limit: "2mb" }));
     app.use(express.json());
     app.use(session.middleware);
     app.use("/", routes);
     app.use("/auth", createAuthRoutes({ authService, ...session }));
     app.use("/projects", createProjectRoutes());
+    app.use("/projects", createProjectOperationsRoutes());
+    app.use("/projects", createSiteManagementRoutes());
     app.use("/projects", createWorkItemRoutes());
     app.use("/projects", createTaskRoutes());
     app.use("/projects", createScheduleRoutes());
