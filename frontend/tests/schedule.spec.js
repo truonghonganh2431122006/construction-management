@@ -93,3 +93,70 @@ test("T-28 missing or invalid project does not send API requests", async ({ page
     }
     expect(requests).toEqual([]);
 });
+
+test("T-37 renders finish date differences and marks newly critical tasks", async ({ page }) => {
+    const scheduleWithDelays = [
+        { id: 1, name: "Việc A", duration_days: 5, es: 0, ef: 8, ls: 0, lf: 8, slack: 0, isCritical: true, initiallyCritical: true, newlyCritical: false },
+        { id: 2, name: "Việc B", duration_days: 4, es: 8, ef: 12, ls: 8, lf: 12, slack: 0, isCritical: true, initiallyCritical: false, newlyCritical: true }
+    ];
+    const summary = { plannedFinish: 9, currentFinish: 12, delayDays: 3 };
+
+    await page.route("**/projects/37/schedule*", (route) => route.fulfill({
+        json: { schedule: scheduleWithDelays, summary }
+    }));
+
+    await page.goto("/schedule?projectId=37");
+    await expect(page.getByText("Kế hoạch hoàn thành")).toBeVisible();
+    await expect(page.locator(".schedule-summary").getByText("Ngày 9")).toBeVisible();
+    await expect(page.getByText("Dự kiến hiện tại")).toBeVisible();
+    await expect(page.locator(".schedule-summary").getByText("Ngày 12")).toBeVisible();
+    await expect(page.getByText("Chậm 3 ngày")).toBeVisible();
+
+    await expect(page.getByRole("table").getByText("Mới thành găng")).toBeVisible();
+    await expect(page.locator(".gantt-legend").getByText("Mới thành găng")).toBeVisible();
+    await expect(page.locator(".gantt-row.is-newly-critical")).toHaveCount(1);
+});
+
+test("T-35 opens progress modal, validates dates inline and prompts on reopening completed task", async ({ page }) => {
+    const tasks = [
+        { id: 101, name: "Đổ sàn", duration_days: 3, es: 0, ef: 3, ls: 0, lf: 3, slack: 0, isCritical: true, actual_start: "2026-10-01", actual_finish: "2026-10-04", progress_percent: 100 }
+    ];
+
+    await page.route("**/projects/37/schedule*", (route) => route.fulfill({
+        json: { schedule: tasks }
+    }));
+
+    let patchPayload = null;
+    await page.route("**/projects/37/tasks/101", (route) => {
+        if (route.request().method() === "PATCH") {
+            patchPayload = route.request().postDataJSON();
+            return route.fulfill({ json: { task: { ...tasks[0], ...patchPayload } } });
+        }
+        return route.continue();
+    });
+
+    await page.goto("/schedule?projectId=37");
+    await page.getByRole("row").filter({ hasText: "Đổ sàn" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByText("Cập nhật tiến độ: Đổ sàn")).toBeVisible();
+
+    const finishInput = page.locator("#actual-finish-input");
+    await finishInput.fill("2026-09-25");
+    await expect(page.getByText("Ngày hoàn thành thực tế không được trước ngày bắt đầu thực tế")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Lưu tiến độ" })).toBeDisabled();
+
+    await finishInput.fill("");
+    await expect(page.getByText("Ngày hoàn thành thực tế không được trước ngày bắt đầu thực tế")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Lưu tiến độ" })).toBeEnabled();
+
+    await page.getByRole("button", { name: "Lưu tiến độ" }).click();
+    await expect(page.locator(".ant-modal-confirm-title")).toHaveText("Mở lại công việc đã hoàn thành?");
+
+    await page.getByRole("button", { name: "Đồng ý mở lại" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(patchPayload).toEqual({
+        actual_start: "2026-10-01",
+        actual_finish: null,
+        progress_percent: 100
+    });
+});

@@ -167,7 +167,13 @@ async function ensureProjectSchedule(transaction, project, projectId) {
         const graph = await loadProjectGraph(transaction.tasks, projectId);
         const sorted = topologicalSort(graph);
         if (sorted.hasCycle) throw createCycleError(graph, sorted.cycleTasks);
-        const results = sorted.sortedTasks.length ? calculateScheduleCPM(sorted.sortedTasks) : new Map();
+        let results;
+        if (sorted.sortedTasks.length > 200) {
+            const { calculateScheduleCPMAsync } = require("./cpmService");
+            results = await calculateScheduleCPMAsync(sorted.sortedTasks);
+        } else {
+            results = sorted.sortedTasks.length ? calculateScheduleCPM(sorted.sortedTasks) : new Map();
+        }
         await transaction.replaceResults(projectId, [...results.values()]);
     }
 }
@@ -177,7 +183,21 @@ function createScheduleService({ model }) {
         async getSchedule(projectId, { criticalOnly = false } = {}) {
             return model.withProjectTransaction(projectId, async (transaction, project) => {
                 await ensureProjectSchedule(transaction, project, projectId);
-                return transaction.listResults(projectId, criticalOnly);
+                const schedule = await transaction.listResults(projectId, criticalOnly);
+                const allResults = criticalOnly ? await transaction.listResults(projectId, false) : schedule;
+                let plannedFinish = 0;
+                let currentFinish = 0;
+                for (const item of allResults) {
+                    if (item.ef > currentFinish) currentFinish = item.ef;
+                    const pEf = item.plannedEf ?? item.ef;
+                    if (pEf > plannedFinish) plannedFinish = pEf;
+                }
+                schedule.summary = {
+                    plannedFinish,
+                    currentFinish,
+                    delayDays: currentFinish - plannedFinish
+                };
+                return schedule;
             });
         }
     };

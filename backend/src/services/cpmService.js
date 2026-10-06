@@ -204,8 +204,39 @@ function calculateForwardPass(sortedTasks, resultMap = new Map(), options = {}) 
             }
         }
 
-        const es = Math.round(maxEarlyStart);
-        const ef = Math.round(es + duration);
+        let es = Math.round(maxEarlyStart);
+        let ef = Math.round(es + duration);
+
+        if (!options.ignoreActuals) {
+            const actualFinish = task.actual_finish != null ? Number(task.actual_finish) : null;
+            const actualStart = task.actual_start != null ? Number(task.actual_start) : null;
+            const progressPercent = task.progress_percent != null ? Number(task.progress_percent) : null;
+
+            if (actualFinish != null && Number.isFinite(actualFinish)) {
+                ef = Math.round(actualFinish);
+                es = actualStart != null && Number.isFinite(actualStart)
+                    ? Math.round(actualStart)
+                    : Math.max(Math.round(maxEarlyStart), Math.round(ef - duration));
+            } else if (actualStart != null && Number.isFinite(actualStart)) {
+                es = Math.round(actualStart);
+                let remaining = duration;
+                if (task.remaining_days != null) {
+                    remaining = Number(task.remaining_days);
+                } else if (progressPercent != null && progressPercent >= 0 && progressPercent <= 100) {
+                    remaining = Math.ceil(duration * (1 - progressPercent / 100));
+                }
+                const today = Number(options.today) || 0;
+                const forecastEf = Math.round(today + remaining);
+                ef = Math.max(Math.round(es + duration), forecastEf);
+            } else if (progressPercent != null && progressPercent > 0 && progressPercent < 100) {
+                const remaining = task.remaining_days != null
+                    ? Number(task.remaining_days)
+                    : Math.ceil(duration * (1 - progressPercent / 100));
+                const today = Number(options.today) || 0;
+                const forecastEf = Math.round(today + remaining);
+                ef = Math.max(ef, forecastEf);
+            }
+        }
 
         const record = resultMap.get(taskId) || { ...task };
         record.id = taskId;
@@ -344,8 +375,12 @@ function calculateBackwardPass(sortedTasks, resultMap, options = {}) {
             }
         }
 
-        const lf = Math.round(minLateFinish);
-        const ls = Math.round(lf - duration);
+        let lf = Math.round(minLateFinish);
+        if (!options.ignoreActuals && task.actual_finish != null && Number.isFinite(Number(task.actual_finish))) {
+            lf = Math.min(lf, Math.round(Number(task.actual_finish)));
+        }
+        const effectiveDuration = record.ef - record.es;
+        const ls = Math.round(lf - effectiveDuration);
 
         record.lf = lf;
         record.ls = ls;
@@ -395,11 +430,72 @@ function calculateSlackAndCriticalPath(resultMap) {
  * @returns {Map<any, Object>} Map kết quả đầy đủ
  */
 function calculateScheduleCPM(sortedTasks, options = {}) {
+    const hasActuals = !options.ignoreActuals && sortedTasks.some(
+        (t) => t.actual_finish != null || t.actual_start != null || (t.progress_percent != null && t.progress_percent > 0)
+    );
+
+    let baselineResultMap = null;
+    let plannedFinish = 0;
+
+    if (hasActuals) {
+        baselineResultMap = new Map();
+        calculateForwardPass(sortedTasks, baselineResultMap, { ...options, ignoreActuals: true });
+        calculateBackwardPass(sortedTasks, baselineResultMap, { ...options, ignoreActuals: true });
+        calculateSlackAndCriticalPath(baselineResultMap);
+        for (const record of baselineResultMap.values()) {
+            if (record.ef > plannedFinish) plannedFinish = record.ef;
+        }
+    }
+
     const resultMap = new Map();
     calculateForwardPass(sortedTasks, resultMap, options);
     calculateBackwardPass(sortedTasks, resultMap, options);
     calculateSlackAndCriticalPath(resultMap);
+
+    let currentFinish = 0;
+    for (const record of resultMap.values()) {
+        if (record.ef > currentFinish) currentFinish = record.ef;
+    }
+
+    if (!hasActuals) {
+        plannedFinish = currentFinish;
+    }
+
+    for (const [taskId, record] of resultMap.entries()) {
+        const initiallyCritical = baselineResultMap
+            ? Boolean(baselineResultMap.get(taskId)?.isCritical)
+            : record.isCritical;
+        const newlyCritical = !initiallyCritical && record.isCritical;
+
+        record.initiallyCritical = initiallyCritical;
+        record.newlyCritical = newlyCritical;
+        record.plannedEf = baselineResultMap ? (baselineResultMap.get(taskId)?.ef ?? record.ef) : record.ef;
+
+        if (options.calendar && options.calendar.startDate) {
+            const { workingDate } = require("./workingCalendar");
+            const { startDate, workingDays, holidays } = options.calendar;
+            record.es_date = workingDate(startDate, record.es, workingDays, holidays);
+            record.ef_date = workingDate(startDate, record.ef, workingDays, holidays);
+            record.ls_date = workingDate(startDate, record.ls, workingDays, holidays);
+            record.lf_date = workingDate(startDate, record.lf, workingDays, holidays);
+        }
+    }
+
+    resultMap.summary = {
+        plannedFinish,
+        currentFinish,
+        delayDays: currentFinish - plannedFinish
+    };
+
     return resultMap;
+}
+
+async function calculateScheduleCPMAsync(sortedTasks, options = {}) {
+    return new Promise((resolve) => {
+        setImmediate(() => {
+            resolve(calculateScheduleCPM(sortedTasks, options));
+        });
+    });
 }
 
 module.exports = {
@@ -416,5 +512,6 @@ module.exports = {
     calculateForwardPass,
     calculateBackwardPass,
     calculateSlackAndCriticalPath,
-    calculateScheduleCPM
+    calculateScheduleCPM,
+    calculateScheduleCPMAsync
 };

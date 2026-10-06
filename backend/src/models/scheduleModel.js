@@ -18,13 +18,13 @@ function createScheduleModel(pool) {
             // One bulk write, including all tasks; never a query per task.
             await pool.query(`
                 INSERT INTO schedule_results
-                    (task_id, early_start, early_finish, late_start, late_finish, total_float, is_critical)
-                SELECT id, es, ef, ls, lf, slack, "isCritical"
+                    (task_id, early_start, early_finish, late_start, late_finish, total_float, is_critical, initially_critical, planned_early_finish)
+                SELECT id, es, ef, ls, lf, slack, "isCritical", coalesce("initiallyCritical", "isCritical"), coalesce("plannedEf", ef)
                 FROM jsonb_to_recordset($1::jsonb) AS result(
-                    id INTEGER, es BIGINT, ef BIGINT, ls BIGINT, lf BIGINT, slack BIGINT, "isCritical" BOOLEAN
+                    id INTEGER, es BIGINT, ef BIGINT, ls BIGINT, lf BIGINT, slack BIGINT, "isCritical" BOOLEAN, "initiallyCritical" BOOLEAN, "plannedEf" BIGINT
                 )
-            `, [JSON.stringify(results.map(({ id, es, ef, ls, lf, slack, isCritical }) => ({
-                id, es, ef, ls, lf, slack, isCritical
+            `, [JSON.stringify(results.map(({ id, es, ef, ls, lf, slack, isCritical, initiallyCritical, plannedEf }) => ({
+                id, es, ef, ls, lf, slack, isCritical, initiallyCritical: initiallyCritical ?? isCritical, plannedEf: plannedEf ?? ef
             })))]);
             await pool.query("UPDATE projects SET schedule_needs_recalc = FALSE WHERE id = $1", [projectId]);
         },
@@ -32,9 +32,14 @@ function createScheduleModel(pool) {
         async listResults(projectId, criticalOnly = false) {
             const { rows } = await pool.query(`
                 SELECT t.id, t.name, t.duration_days, t.work_item_id,
+                    t.actual_start::text AS actual_start, t.actual_finish::text AS actual_finish,
+                    coalesce(t.progress_percent, 0) AS progress_percent,
                     r.early_start::double precision AS es, r.early_finish::double precision AS ef,
                     r.late_start::double precision AS ls, r.late_finish::double precision AS lf,
                     r.total_float::double precision AS slack, r.is_critical AS "isCritical",
+                    coalesce(r.initially_critical, r.is_critical) AS "initiallyCritical",
+                    (r.is_critical AND NOT coalesce(r.initially_critical, false)) AS "newlyCritical",
+                    coalesce(r.planned_early_finish, r.early_finish)::double precision AS "plannedEf",
                     r.calculated_at
                 FROM schedule_results r
                 JOIN tasks t ON t.id = r.task_id
