@@ -7,10 +7,11 @@ function createScheduleController({ service }) {
             const schedule = await service.getSchedule(Number(req.params.projectId), {
                 criticalOnly: req.query.critical === "true"
             });
-            return res.json({
-                schedule,
-                summary: schedule?.summary || null
-            });
+            const response = { schedule };
+            if (schedule?.summary && schedule.length > 0) {
+                response.summary = schedule.summary;
+            }
+            return res.json(response);
         }
     };
 }

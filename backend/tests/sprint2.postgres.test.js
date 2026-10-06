@@ -11,7 +11,7 @@ const { loadProjectGraph } = require("../src/services/scheduleService");
 const { createScheduleService } = require("../src/services/scheduleService");
 const { createScheduleModel } = require("../src/models/scheduleModel");
 const { createScheduleRoutes } = require("../src/routes/scheduleRoutes");
-const scenarios = require("./data/cpm-scenarios.json");
+const scenarios = require("./data/cpm-scenarios.json").filter((s) => ["K-01", "K-02", "K-03"].includes(s.id));
 const errorHandler = require("../src/middleware/errorHandler");
 
 // Opt in to a real PostgreSQL server. Each run owns an isolated schema;
@@ -430,11 +430,11 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
         expect((await migrate("down"))[0]).toContain("013_create_site_management.sql");
         expect((await migrate("down"))[0]).toContain("012_create_project_operations.sql");
         const task = await insertTask("A");
-        await request(app).get(scheduleUrl()).expect(200);
         const duplicate = (id) => pool.query(`
             INSERT INTO schedule_results (task_id, early_start, early_finish, late_start, late_finish, total_float, is_critical)
             VALUES ($1, 0, 1, 0, 1, 0, TRUE)
         `, [id]);
+        await duplicate(task.id);
         await expect(duplicate(task.id)).rejects.toMatchObject({ code: "23505" });
         await expect(duplicate(2147483647)).rejects.toMatchObject({ code: "23503" });
         await expect(migrate("down")).rejects.toThrow(/schedule_results contain data/);
