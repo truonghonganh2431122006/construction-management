@@ -32,8 +32,10 @@ function createScheduleModel(pool) {
         async listResults(projectId, criticalOnly = false) {
             const { rows } = await pool.query(`
                 SELECT t.id, t.name, t.duration_days, t.work_item_id,
-                    t.actual_start::text AS actual_start, t.actual_finish::text AS actual_finish,
-                    coalesce(t.progress_percent, 0) AS progress_percent,
+                    coalesce(t.actual_start, t.actual_start_date)::text AS actual_start,
+                    coalesce(t.actual_finish, t.actual_end_date)::text AS actual_finish,
+                    CASE WHEN t.progress_percent > 0 THEN t.progress_percent
+                        ELSE coalesce(t.percent_complete, t.progress_percent, 0) END AS progress_percent,
                     r.early_start::double precision AS es, r.early_finish::double precision AS ef,
                     r.late_start::double precision AS ls, r.late_finish::double precision AS lf,
                     r.total_float::double precision AS slack, r.is_critical AS "isCritical",

@@ -9,6 +9,10 @@
     "lint": "eslint .",
     "test": "playwright test",
     "test:pwa": "npm run build && playwright test --config playwright.pwa.config.js",
+    "test:unit": "node --test tests/gantt-unit.test.mjs tests/schedule-view-model.test.mjs",
+    "test:t31": "playwright test --config playwright.t31.config.js",
+    "test:t31:serve": "node tests/fixtures/gantt-server.mjs",
+    "test:preview": "playwright test --config playwright.preview.config.js",
     "preview": "vite preview"
   },
   "dependencies": {

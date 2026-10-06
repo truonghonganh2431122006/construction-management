@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>T-29 · Benchmark Gantt SVG / Canvas</title>
+  <style>
+    :root { color: #17202a; font-family: system-ui, sans-serif; color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: #f4f7f9; }
+    main { max-width: 1100px; margin: auto; }
+    h1 { font-size: clamp(1.35rem, 4vw, 2rem); }
+    button, input { font: inherit; }
+    button { min-height: 44px; padding: 8px 12px; cursor: pointer; }
+    button:disabled { cursor: default; opacity: .6; }
+    input, select { font: inherit; min-height: 44px; padding: 6px; max-width: 100%; }
+    #runs { width: 5rem; }
+    #device-name { width: 16rem; }
+    .controls, .results { padding: 12px; margin: 12px 0; border: 1px solid #cbd5dc; border-radius: 8px; background: white; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .controls label { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid #dce3e8; }
+    .viewport { height: 360px; overflow: auto; border: 1px solid #cbd5dc; background: white; overflow-anchor: none; scroll-behavior: auto; }
+    .stage { position: relative; width: 1000px; height: 12000px; }
+    svg { display: block; width: 1000px; height: 12000px; }
+    canvas { display: block; position: absolute; left: 0; }
+    .muted { color: #586875; overflow-wrap: anywhere; }
+    #status { min-height: 1.5em; }
+    #status[data-error="true"] { color: #a12222; }
+    #environment { font-size: .875rem; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Benchmark 500 thanh Gantt · T-29</h1>
+  <p class="muted">SVG và Canvas dùng cùng 500 thanh và vùng cuộn 1.000 × 12.000 px. Canvas vẽ vào bộ đệm theo vùng nhìn và vẽ lại khi cuộn, tránh bitmap quá lớn trên điện thoại.</p>
+  <div class="controls">
+    <label for="device-name">Tên thiết bị <input id="device-name" type="text" placeholder="Ví dụ: Galaxy A54" maxlength="120"></label>
+    <label for="device-type">Môi trường <select id="device-type">
+      <option value="unspecified">Chưa khai báo</option>
+      <option value="physical-phone">Điện thoại thật</option>
+      <option value="desktop">Máy tính</option>
+      <option value="emulation">Mô phỏng điện thoại</option>
+    </select></label>
+  </div>
+  <div class="controls">
+    <label for="runs">Số lần chạy mỗi phương án <input id="runs" type="number" min="1" max="20" step="1" value="3" required></label>
+    <button id="run-svg" type="button">Đo SVG</button>
+    <button id="run-canvas" type="button">Đo Canvas</button>
+    <button id="run-both" type="button">Đo cả hai</button>
+    <button id="cancel" type="button" disabled>Dừng đo</button>
+    <button id="export" type="button" disabled>Tải kết quả JSON</button>
+  </div>
+  <p id="status" role="status" aria-live="polite">Sẵn sàng đo. Giữ trang ở phía trước và không cuộn trong lúc đo.</p>
+  <div id="metrics" class="results" aria-label="Kết quả benchmark"><p>Chưa có số đo.</p></div>
+  <div id="viewport" class="viewport" tabindex="0" role="region" aria-label="Vùng cuộn benchmark"></div>
+  <p id="environment" class="muted"></p>
+  <p class="muted">Mỗi lượt cuộn kéo dài 2 giây, từ đầu đến cuối rồi về đầu, gồm cả chiều ngang trên màn hình hẹp. FPS được ước lượng từ khoảng cách giữa các callback requestAnimationFrame; đây không phải bộ đếm khung hình GPU. Điện thoại mô phỏng không thay thế số đo điện thoại thật.</p>
+  <noscript>Cần bật JavaScript để chạy benchmark.</noscript>
+</main>
+<!-- Classic script also works when this page is opened directly with file://. -->
+<script src="./benchmark.js" defer></script>
+</body>
+</html>

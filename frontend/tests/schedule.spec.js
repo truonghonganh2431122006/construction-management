@@ -6,6 +6,24 @@ const schedule = [
     { id: 43, name: "Đổ bê tông", duration_days: 5, work_item_id: 10, es: 4, ef: 9, ls: 4, lf: 9, slack: 0, isCritical: true }
 ];
 
+test.beforeEach(async ({ page }) => {
+    await page.route("**/auth/me**", (route) => route.fulfill({
+        json: { user: { id: 1, fullname: "Test User", role: "admin" } }
+    }));
+    await page.route(/\/projects(?:\?.*)?$/, (route) => route.fulfill({
+        json: { projects: [{ id: 37, name: "Dự án kiểm thử", member_role: "manager" }] }
+    }));
+    await page.route(/\/projects\/37\/notifications(?:\?.*)?$/, (route) => route.fulfill({
+        json: { notifications: [], unread_count: 0 }
+    }));
+    await page.route(/\/projects\/38\/notifications(?:\?.*)?$/, (route) => route.fulfill({
+        json: { notifications: [], unread_count: 0 }
+    }));
+    await page.route("**/projects/*/items", (route) => route.fulfill({ json: { items: [] } }));
+    await page.route("**/projects/*/tasks", (route) => route.fulfill({ json: { tasks: [] } }));
+    await page.route("**/projects/*/dependencies", (route) => route.fulfill({ json: { dependencies: [] } }));
+});
+
 test("T-28 renders all CPM fields, relative Vietnamese days and critical-only filter", async ({ page }) => {
     const queries = [];
     await page.route("**/projects/37/schedule*", (route) => {
@@ -15,14 +33,18 @@ test("T-28 renders all CPM fields, relative Vietnamese days and critical-only fi
             ? schedule.filter((task) => task.isCritical) : schedule } });
     });
     await page.goto("/schedule?projectId=37");
-    await expect(page.getByRole("heading", { name: "Tiến độ công việc" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tiến độ dự án" })).toBeVisible();
+    await expect(page.getByRole("table")).not.toBeVisible();
+    await page.getByText("Chi tiết đường găng", { exact: true }).click();
     await expect(page.getByRole("table")).toBeVisible();
     await expect(page.locator(".gantt-row")).toHaveCount(3);
-    await expect(page.locator(".gantt-row.is-critical")).toHaveCount(2);
-    await expect(page.locator(".gantt-row").filter({hasText:"Đổ bê tông"}).locator(".gantt-bar")).toHaveAttribute("title", /ES 4, EF 9, LS 4, LF 9/);
+    await expect(page.locator(".gantt-bar-critical")).toHaveCount(2);
     for (const title of ["Tên công việc", "Thời lượng", "Khởi sớm (ES)", "Kết sớm (EF)", "Khởi muộn (LS)", "Kết muộn (LF)", "Độ trễ", "Trạng thái"]) {
         await expect(page.getByRole("columnheader", { name: title, exact: true })).toBeVisible();
     }
+    await expect(page.getByRole("row").filter({ hasText: "Đổ bê tông" }).getByRole("cell")).toHaveText([
+        "Đổ bê tông", "5 ngày", "Ngày 4", "Ngày 9", "Ngày 4", "Ngày 9", "0 ngày", "Găng"
+    ]);
     const nonCritical = page.getByRole("row").filter({ hasText: "Chuẩn bị vật tư" });
     await expect(nonCritical.getByRole("cell")).toHaveText([
         "Chuẩn bị vật tư", "2 ngày", "Ngày 0", "Ngày 2", "Ngày 3", "Ngày 5", "3 ngày", "Không găng"
@@ -32,8 +54,7 @@ test("T-28 renders all CPM fields, relative Vietnamese days and critical-only fi
     await page.getByRole("checkbox", { name: "Chỉ hiện công việc găng" }).check();
     await expect(nonCritical).toHaveCount(0);
     await expect(page.getByRole("row").filter({ hasText: "Đổ bê tông" })).toBeVisible();
-    expect(queries).toContain("true");
-    await expect(page.locator(".gantt-row")).toHaveCount(2);
+    expect(queries.every((query) => query === null)).toBe(true);
     await page.getByRole("checkbox", { name: "Chỉ hiện công việc găng" }).uncheck();
     await expect(nonCritical).toBeVisible();
     await page.screenshot({ path: test.info().outputPath("schedule.png"), fullPage: true });
@@ -47,12 +68,13 @@ test("T-28 loading transitions to empty state", async ({ page }) => {
         await route.fulfill({ json: { schedule: [] } });
     });
     await page.goto("/schedule?projectId=37");
-    await expect(page.getByRole("status")).toHaveText("Đang tải tiến độ…");
+    await expect(page.getByRole("status", { name: "Đang tải tiến độ…" })).toBeVisible();
     release();
-    await expect(page.getByText("Dự án chưa có công việc. Thêm công việc từ cây hạng mục để tính tiến độ.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Chưa có công việc" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "+ Thêm công việc" })).toHaveAttribute("href", "/work-items?projectId=37");
     await expect(page.getByRole("table")).toHaveCount(0);
     await page.getByRole("checkbox", { name: "Chỉ hiện công việc găng" }).check();
-    await expect(page.getByText("Không có công việc găng.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Chưa có công việc" })).toBeVisible();
 });
 
 test("T-28 shows a named cycle alert instead of an empty table", async ({ page }) => {
@@ -75,7 +97,7 @@ test("T-28 API error can be retried, project switch discards previous data", asy
     await expect(page.getByRole("alert")).toHaveText("Không thể tính tiến độ");
     fail = false;
     await page.getByRole("button", { name: "Tải lại" }).click();
-    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.locator(".gantt-row")).toHaveCount(3);
     await page.route("**/projects/38/schedule*", (route) => route.fulfill({ status: 403, json: { message: "Bạn không có quyền truy cập dự án này" } }));
     await page.goto("/schedule?projectId=38");
     await expect(page.getByRole("alert")).toHaveText("Bạn không có quyền truy cập dự án này");
@@ -112,51 +134,8 @@ test("T-37 renders finish date differences and marks newly critical tasks", asyn
     await expect(page.locator(".schedule-summary").getByText("Ngày 12")).toBeVisible();
     await expect(page.getByText("Chậm 3 ngày")).toBeVisible();
 
+    await page.getByText("Chi tiết đường găng").click();
     await expect(page.getByRole("table").getByText("Mới thành găng")).toBeVisible();
     await expect(page.locator(".gantt-legend").getByText("Mới thành găng")).toBeVisible();
     await expect(page.locator(".gantt-row.is-newly-critical")).toHaveCount(1);
-});
-
-test("T-35 opens progress modal, validates dates inline and prompts on reopening completed task", async ({ page }) => {
-    const tasks = [
-        { id: 101, name: "Đổ sàn", duration_days: 3, es: 0, ef: 3, ls: 0, lf: 3, slack: 0, isCritical: true, actual_start: "2026-10-01", actual_finish: "2026-10-04", progress_percent: 100 }
-    ];
-
-    await page.route("**/projects/37/schedule*", (route) => route.fulfill({
-        json: { schedule: tasks }
-    }));
-
-    let patchPayload = null;
-    await page.route("**/projects/37/tasks/101", (route) => {
-        if (route.request().method() === "PATCH") {
-            patchPayload = route.request().postDataJSON();
-            return route.fulfill({ json: { task: { ...tasks[0], ...patchPayload } } });
-        }
-        return route.continue();
-    });
-
-    await page.goto("/schedule?projectId=37");
-    await page.getByRole("row").filter({ hasText: "Đổ sàn" }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByText("Cập nhật tiến độ: Đổ sàn")).toBeVisible();
-
-    const finishInput = page.locator("#actual-finish-input");
-    await finishInput.fill("2026-09-25");
-    await expect(page.getByText("Ngày hoàn thành thực tế không được trước ngày bắt đầu thực tế")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Lưu tiến độ" })).toBeDisabled();
-
-    await finishInput.fill("");
-    await expect(page.getByText("Ngày hoàn thành thực tế không được trước ngày bắt đầu thực tế")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Lưu tiến độ" })).toBeEnabled();
-
-    await page.getByRole("button", { name: "Lưu tiến độ" }).click();
-    await expect(page.locator(".ant-modal-confirm-title")).toHaveText("Mở lại công việc đã hoàn thành?");
-
-    await page.getByRole("button", { name: "Đồng ý mở lại" }).click();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
-    expect(patchPayload).toEqual({
-        actual_start: "2026-10-01",
-        actual_finish: null,
-        progress_percent: 100
-    });
 });

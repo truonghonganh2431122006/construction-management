@@ -3,9 +3,12 @@ import process from "node:process";
 
 export default defineConfig({
     testDir: "./tests",
+    testMatch: "**/*.spec.js",
+    testIgnore: "**/gantt-t31.spec.js",
     fullyParallel: false,
     workers: 1,
     timeout: 60000,
+    expect: { timeout: 15000 },
     use: {
         baseURL: "http://127.0.0.1:5175",
         channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
@@ -14,7 +17,7 @@ export default defineConfig({
         trace: "retain-on-failure"
     },
     webServer: {
-        command: "npm run dev -- --host 127.0.0.1 --port 5175 --strictPort",
+        command: "node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5175 --strictPort",
         url: "http://127.0.0.1:5175",
         env: {
             VITE_ENABLE_JOURNAL_SW: process.env.OPERATIONS_REAL_E2E ? "1" : ""

@@ -7,7 +7,12 @@ function createTaskModel(pool) {
         },
         async list(projectId) {
             const { rows } = await pool.query(`
-                SELECT t.* FROM tasks t
+                SELECT t.*,
+                    coalesce(t.actual_start, t.actual_start_date) AS actual_start,
+                    coalesce(t.actual_finish, t.actual_end_date) AS actual_finish,
+                    CASE WHEN t.progress_percent > 0 THEN t.progress_percent
+                        ELSE coalesce(t.percent_complete, t.progress_percent, 0) END AS progress_percent
+                FROM tasks t
                 JOIN work_items w ON w.id = t.work_item_id
                 WHERE w.project_id = $1 ORDER BY t.id
             `, [projectId]);
@@ -16,7 +21,12 @@ function createTaskModel(pool) {
 
         async findById(projectId, taskId) {
             const { rows } = await pool.query(`
-                SELECT t.* FROM tasks t
+                SELECT t.*,
+                    coalesce(t.actual_start, t.actual_start_date) AS actual_start,
+                    coalesce(t.actual_finish, t.actual_end_date) AS actual_finish,
+                    CASE WHEN t.progress_percent > 0 THEN t.progress_percent
+                        ELSE coalesce(t.percent_complete, t.progress_percent, 0) END AS progress_percent
+                FROM tasks t
                 JOIN work_items w ON w.id = t.work_item_id
                 WHERE w.project_id = $1 AND t.id = $2
             `, [projectId, taskId]);
@@ -37,17 +47,34 @@ function createTaskModel(pool) {
 
                 const result = taskId == null
                     ? await client.query(`
-                        INSERT INTO tasks (work_item_id, name, duration_days, actual_start, actual_finish, progress_percent)
-                        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+                        INSERT INTO tasks
+                            (work_item_id, name, duration_days, actual_start, actual_finish, progress_percent,
+                             actual_start_date, actual_end_date, percent_complete)
+                        VALUES ($1, $2, $3, $4, $5, $6, $4, $5, $6) RETURNING *
                     `, [work_item_id, name, duration_days, actual_start, actual_finish, progress_percent])
                     : await client.query(`
                         UPDATE tasks t SET work_item_id = $1, name = $2, duration_days = $3,
                             actual_start = $4, actual_finish = $5, progress_percent = $6,
+                            actual_start_date = $4, actual_end_date = $5, percent_complete = $6,
                             updated_at = CURRENT_TIMESTAMP
                         FROM work_items w
                         WHERE t.id = $7 AND w.id = t.work_item_id AND w.project_id = $8
                         RETURNING t.*
                     `, [work_item_id, name, duration_days, actual_start, actual_finish, progress_percent, taskId, projectId]);
+                return result.rows[0] || null;
+            });
+        },
+
+        async updateProgress(projectId, taskId, { actual_start_date, actual_end_date, percent_complete }) {
+            return withProjectTransaction(pool, projectId, async (client) => {
+                const result = await client.query(`
+                    UPDATE tasks t SET actual_start = $1, actual_finish = $2, progress_percent = $3,
+                        actual_start_date = $1, actual_end_date = $2, percent_complete = $3,
+                        updated_at = CURRENT_TIMESTAMP
+                    FROM work_items w
+                    WHERE t.id = $4 AND w.id = t.work_item_id AND w.project_id = $5
+                    RETURNING t.*
+                `, [actual_start_date, actual_end_date, percent_complete, taskId, projectId]);
                 return result.rows[0] || null;
             });
         },

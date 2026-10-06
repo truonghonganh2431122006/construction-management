@@ -6,6 +6,12 @@ Sprint 2 T-11–T-17: xem [audit, API, cách kiểm thử và kết quả](docs/
 
 Sprint 2 T-22–T-28: xem [dữ liệu CPM, chống vòng, cache và trang tiến độ](docs/sprint-2-t22-t28.md).
 
+Sprint 3 T-29: xem [benchmark 500 thanh SVG/Canvas, cách chạy và quyết định kỹ thuật](experiments/gantt-benchmark/README.md).
+
+## Quyết định kỹ thuật — T-29
+
+Chọn **SVG** cho renderer thanh Gantt với 500 công việc: số đo hiện có cho thấy cả SVG và canvas cuộn gần 60 FPS trung bình, trong khi SVG thuận tiện hơn cho chọn thanh, tooltip và truy cập bàn phím. Benchmark độc lập đã sửa lỗi chạy trực tiếp HTML, chạy chồng và canvas toàn chiều cao; xem [số đo gốc, lý do lựa chọn và hướng dẫn đo điện thoại](experiments/gantt-benchmark/README.md). Kiểm chứng desktop và mô phỏng màn hình điện thoại đã qua; nghiệm thu trên điện thoại tầm trung thật còn chờ thiết bị. Gantt sản phẩm hiện dùng DOM `div`/`button`; T-29 chưa thay renderer sản phẩm.
+
 ## Công nghệ sử dụng
 
 ### Backend
@@ -204,10 +210,19 @@ npm run migrate
 ```
 
 Runner chạy các file `NNN_ten_migration.sql` theo thứ tự và bỏ qua các migration
-đã ghi nhận. File `.down.sql` chỉ dùng khi rollback. Mỗi lần chạy dùng một
+đã ghi nhận, kể cả khi một migration mới hơn đã được áp dụng trước đó. File
+`.down.sql` chỉ dùng khi rollback. Mỗi lần chạy dùng một
 transaction trên cùng connection; nếu lỗi thì toàn bộ thay đổi schema và lịch
 sử của lần chạy đó được rollback. Checksum phát hiện sửa đổi migration đã áp
 dụng; khóa advisory ngăn hai runner chạy đồng thời trong cùng database/schema.
+
+Nếu database cũ đã ghi nhận `012_add_actual_progress.sql` hoặc bản T-34 cũ
+`015_add_actual_progress.sql`, runner chỉ nhận diện lại migration khi checksum
+được biết và các cột cùng constraint thực tế trên `tasks` khớp. Migration
+T-34 hiện dùng version 016 để không xung đột với migration `015_add_task_actuals`
+từ `main`. Khi chạy `up`, việc đổi tên bản ghi lịch sử và áp dụng các migration
+còn thiếu nằm trong cùng transaction. Nếu kiểm tra không khớp, runner dừng mà
+không sửa lịch sử; không tự đổi tên hoặc xóa dòng trong `schema_migrations`.
 
 ### Rollback
 
