@@ -51,6 +51,15 @@ const developmentServiceWorkerCleanup = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [developmentServiceWorkerCleanup, react()],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: 'http-client', test: /node_modules[\\/]axios[\\/]/, includeDependenciesRecursively: false }],
+        },
+      },
+    },
+  },
   server: {
     proxy,
   },
