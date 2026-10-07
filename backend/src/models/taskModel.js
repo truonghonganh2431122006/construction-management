@@ -47,23 +47,11 @@ function createTaskModel(pool) {
 
                 const result = taskId == null
                     ? await client.query(`
-<<<<<<< HEAD
                         INSERT INTO tasks (work_item_id, name, duration_days)
                         VALUES ($1, $2, $3) RETURNING *
                     `, [work_item_id, name, duration_days])
                     : await client.query(`
                         UPDATE tasks t SET work_item_id = $1, name = $2, duration_days = $3,
-=======
-                        INSERT INTO tasks
-                            (work_item_id, name, duration_days, actual_start, actual_finish, progress_percent,
-                             actual_start_date, actual_end_date, percent_complete)
-                        VALUES ($1, $2, $3, $4, $5, $6, $4, $5, $6) RETURNING *
-                    `, [work_item_id, name, duration_days, actual_start, actual_finish, progress_percent])
-                    : await client.query(`
-                        UPDATE tasks t SET work_item_id = $1, name = $2, duration_days = $3,
-                            actual_start = $4, actual_finish = $5, progress_percent = $6,
-                            actual_start_date = $4, actual_end_date = $5, percent_complete = $6,
->>>>>>> ed6121f (feat: complete tasks T-29 through T-35)
                             updated_at = CURRENT_TIMESTAMP
                         FROM work_items w
                         WHERE t.id = $4 AND w.id = t.work_item_id AND w.project_id = $5

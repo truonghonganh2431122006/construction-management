@@ -225,7 +225,7 @@ async function runMigrations({
         validateHistory(migrations, reconciled);
 
         if (command === "status") {
-            for (const [index, migration] of migrations.entries()) {
+            for (const migration of migrations) {
                 messages.push(`${reconciled.some(entry => entry.name === migration.name) ? "applied" : "pending"}: ${migration.name}`);
             }
         } else if (command === "baseline") {

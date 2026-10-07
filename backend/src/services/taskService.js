@@ -38,8 +38,6 @@ async function translateErrors(operation) {
             throw inputError("Cặp công việc trước và sau đã có quan hệ phụ thuộc", 409);
         }
         if (error.code === "23503") throw inputError("Công việc hoặc hạng mục không còn tồn tại", 409);
-<<<<<<< HEAD
-=======
         if (error.code === "23514" && ["tasks_actual_dates_check", "tasks_actual_dates_order_check"]
             .some(constraint => error.constraint === constraint || String(error.message).includes(constraint))) {
             throw inputError("Ngày kết thúc thực tế không được sớm hơn ngày bắt đầu");
@@ -48,7 +46,6 @@ async function translateErrors(operation) {
             .some(constraint => error.constraint === constraint || String(error.message).includes(constraint))) {
             throw inputError("Tiến độ phải là số nguyên từ 0 đến 100");
         }
->>>>>>> ed6121f (feat: complete tasks T-29 through T-35)
         if (error.code === "23514") throw inputError("Thời lượng hoặc quan hệ phụ thuộc không hợp lệ");
         throw error;
     }
