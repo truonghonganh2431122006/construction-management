@@ -1,4 +1,4 @@
-const { countWorkingDays, workingDate } = require("../src/services/workingCalendar");
+const { countWorkingDays } = require("../src/services/workingCalendar");
 const { traceCriticalPath, createScheduleService } = require("../src/services/scheduleService");
 
 describe("Sprint 3: T-41 to T-45 Unit Tests", () => {
