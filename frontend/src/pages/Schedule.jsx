@@ -5,6 +5,7 @@ import { getSchedule, saveBaseline, listMilestoneAlerts } from "../services/sche
 import DashboardLayout from "../components/DashboardLayout";
 import Icon from "../components/OperationsIcon";
 import { SectionHeading } from "../components/OperationsVisuals";
+import ScheduleTimeline from "../features/gantt/ScheduleTimeline";
 import "../styles/Schedule.css";
 
 const day = (value) => `Ngày ${value.toLocaleString("vi-VN")}`;
@@ -16,89 +17,9 @@ const columns = [
     { title: "Khởi muộn (LS)", dataIndex: "ls", key: "ls", render: day },
     { title: "Kết muộn (LF)", dataIndex: "lf", key: "lf", render: day },
     { title: "Độ trễ", dataIndex: "slack", key: "slack", render: (value) => `${value.toLocaleString("vi-VN")} ngày` },
-    { title: "Trạng thái", dataIndex: "isCritical", key: "critical", render: (value) =>
-        <Tag color={value ? "red" : "default"}>{value ? "Găng" : "Không găng"}</Tag> }
+    { title: "Trạng thái", dataIndex: "isCritical", key: "critical", render: (value, task) =>
+        <Tag color={task.newlyCritical ? "orange" : value ? "red" : "default"}>{task.newlyCritical ? "Mới thành găng" : value ? "Găng" : "Không găng"}</Tag> }
 ];
-
-function Gantt({ tasks }) {
-    const [zoom, setZoom] = useState(1);
-    const end = Math.max(1, ...tasks.map((task) => Math.max(task.lf || 0, task.baseline_lf || 0)));
-    const step = Math.max(1, Math.ceil(end / 8));
-    const horizon = Math.ceil(end / step) * step;
-    const ticks = Array.from({ length: horizon / step + 1 }, (_, index) => index * step);
-    return (
-        <section className="schedule-gantt" aria-label="Biểu đồ Gantt">
-            <div className="gantt-tools">
-                <div className="gantt-legend">
-                    <span><i className="critical" />Công việc găng</span>
-                    <span><i />Công việc thường</span>
-                    <span><i className="float" />Khoảng dự trữ</span>
-                    <span><i className="baseline" />Kế hoạch gốc (mờ)</span>
-                </div>
-                <label>
-                    Hiển thị
-                    <select aria-label="Tỷ lệ Gantt" value={zoom} onChange={(event) => setZoom(Number(event.target.value))}>
-                        <option value={1}>Vừa khung</option>
-                        <option value={1.5}>150%</option>
-                        <option value={2}>200%</option>
-                    </select>
-                </label>
-            </div>
-            <div className="gantt-scroll" tabIndex={0} role="region" aria-label="Dòng thời gian công việc">
-                <div className="gantt-canvas" style={{ minWidth: `${780 * zoom}px` }}>
-                    <div className="gantt-header">
-                        <span>Công việc / Thời lượng</span>
-                        <div className="gantt-axis">
-                            {ticks.map((tick) => (
-                                <span key={tick} style={{ left: `${tick / horizon * 100}%` }}>{tick}</span>
-                            ))}
-                        </div>
-                    </div>
-                    {tasks.map((task) => (
-                        <div className={`gantt-row ${task.isCritical ? "is-critical" : ""}`} key={task.id}>
-                            <div className="gantt-task">
-                                <Icon name="task" size={16} />
-                                <span>
-                                    <strong>{task.name}</strong>
-                                    <small>{task.duration_days} ngày · {task.isCritical ? "Đường găng" : `Dự trữ ${task.slack} ngày`}</small>
-                                </span>
-                            </div>
-                            <div className="gantt-lane" style={{ backgroundSize: `${step / horizon * 100}% 100%` }}>
-                                {task.slack > 0 && (
-                                    <span
-                                        className="gantt-float"
-                                        style={{ left: `${task.ef / horizon * 100}%`, width: `${task.slack / horizon * 100}%` }}
-                                        title={`Dự trữ ${task.slack} ngày`}
-                                    />
-                                )}
-                                <span
-                                    className={`gantt-bar ${task.duration_days === 0 ? "is-milestone" : ""}`}
-                                    style={{ left: `${task.es / horizon * 100}%`, width: `${(task.ef - task.es) / horizon * 100}%` }}
-                                    title={`${task.name}: ES ${task.es}, EF ${task.ef}, LS ${task.ls}, LF ${task.lf}, dự trữ ${task.slack} ngày`}
-                                >
-                                    <span>{task.es} → {task.ef}</span>
-                                </span>
-                                {task.baseline_es != null ? (
-                                    <span
-                                        className="gantt-baseline-bar"
-                                        style={{
-                                            left: `${task.baseline_es / horizon * 100}%`,
-                                            width: `${Math.max(0.5, (task.baseline_ef - task.baseline_es) / horizon * 100)}%`
-                                        }}
-                                        title={`Kế hoạch gốc: ES ${task.baseline_es} → EF ${task.baseline_ef} (LS ${task.baseline_ls} → LF ${task.baseline_lf})`}
-                                    />
-                                ) : null}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <p className="gantt-caption">
-                Đơn vị: ngày tương đối từ mốc 0. Thanh màu thể hiện ES → EF; thanh xám mờ bên dưới thể hiện kế hoạch gốc đã chốt; nét đứt thể hiện độ dự trữ.
-            </p>
-        </section>
-    );
-}
 
 function ProjectSchedule({ projectId }) {
     const [criticalOnly, setCriticalOnly] = useState(false);
@@ -110,10 +31,7 @@ function ProjectSchedule({ projectId }) {
 
     useEffect(() => {
         const controller = new AbortController();
-        Promise.all([
-            getSchedule(projectId, { criticalOnly, signal: controller.signal }),
-            listMilestoneAlerts(projectId).catch(() => [])
-        ])
+        getSchedule(projectId, { criticalOnly, signal: controller.signal }).then(async schedule => [schedule, await listMilestoneAlerts(projectId).catch(() => [])])
             .then(([schedule, alertList]) => {
                 if (!controller.signal.aborted) {
                     setState({ loading: false, schedule, error: "" });
@@ -227,7 +145,11 @@ function ProjectSchedule({ projectId }) {
                             <strong>Ngày {Math.max(...state.schedule.map((task) => task.ef))}</strong>
                         </div>
                     </div>
-                    <Gantt tasks={state.schedule} />
+                    <ScheduleTimeline projectId={projectId} schedule={state.schedule} criticalOnly={criticalOnly} onShowAll={() => changeFilter(false)} onScheduleChanged={async () => {
+                        const schedule = await getSchedule(projectId, { criticalOnly });
+                        setState({ loading: false, schedule, error: "" });
+                        setAlerts(await listMilestoneAlerts(projectId).catch(() => []));
+                    }} />
 
                     {/* T-45: Danh sách cảnh báo mốc kèm chuỗi việc gây chậm */}
                     {alerts.length > 0 && (
@@ -239,6 +161,7 @@ function ProjectSchedule({ projectId }) {
                                 rowKey="id"
                                 pagination={false}
                                 dataSource={alerts}
+                                scroll={{ x: 780 }}
                                 columns={[
                                     {
                                         title: "Mốc / Hạng mục",

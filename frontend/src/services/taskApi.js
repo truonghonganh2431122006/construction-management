@@ -3,8 +3,8 @@ import axios from "axios";
 const config = { withCredentials: true };
 const base = (projectId) => `/projects/${projectId}`;
 
-export async function listTasks(projectId) {
-    const { data } = await axios.get(`${base(projectId)}/tasks`, config);
+export async function listTasks(projectId, { signal } = {}) {
+    const { data } = await axios.get(`${base(projectId)}/tasks`, { ...config, signal });
     return data.tasks;
 }
 
@@ -15,8 +15,8 @@ export async function saveTask(projectId, taskId, values) {
     return data.task;
 }
 
-export async function listDependencies(projectId) {
-    const { data } = await axios.get(`${base(projectId)}/dependencies`, config);
+export async function listDependencies(projectId, { signal } = {}) {
+    const { data } = await axios.get(`${base(projectId)}/dependencies`, { ...config, signal });
     return data.dependencies;
 }
 

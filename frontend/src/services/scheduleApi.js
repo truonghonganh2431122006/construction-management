@@ -7,6 +7,7 @@ export async function getSchedule(projectId, { criticalOnly = false, signal } = 
         signal
     });
     if (!Array.isArray(data?.schedule)) throw new Error("API trả về tiến độ không hợp lệ");
+    if (data.summary) data.schedule.summary = data.summary;
     return data.schedule;
 }
 

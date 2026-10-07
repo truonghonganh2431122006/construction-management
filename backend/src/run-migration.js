@@ -133,14 +133,30 @@ async function runMigrations({
         const history = await client.query(
             "SELECT to_regclass('schema_migrations') IS NOT NULL AS present"
         );
-        const applied = history.rows[0].present
+        let applied = history.rows[0].present
             ? (await client.query("SELECT name, checksum FROM schema_migrations ORDER BY name")).rows
             : [];
-        validateHistory(migrations, applied);
+        // 832f3e6 shipped baseline/milestone as 015 before the actuals commit
+        // was restored. Rename only its verified history entry; never rerun DDL.
+        const legacyBaseline = applied.find(entry => entry.name === "015_create_baselines_and_milestones.sql");
+        if (legacyBaseline) {
+            const baseline = migrations.find(entry => entry.name === "016_create_baselines_and_milestones.sql");
+            if (!baseline || baseline.checksum !== legacyBaseline.checksum || applied.some(entry => entry.name === baseline.name)) {
+                throw new Error("Baseline migration checksum/history does not match; no history was changed.");
+            }
+            if (!["up", "status"].includes(command)) throw new Error("Run migrate up to normalize the baseline migration before rollback.");
+            if (command === "up") await client.query("UPDATE schema_migrations SET name = $1 WHERE name = $2 AND checksum = $3",
+                [baseline.name, legacyBaseline.name, legacyBaseline.checksum]);
+            applied = applied.map(entry => entry === legacyBaseline ? { ...entry, name: baseline.name } : entry);
+        }
+        const actualsMissing = !applied.some(entry => entry.name === "015_add_task_actuals.sql")
+            && applied.some(entry => entry.name === "016_create_baselines_and_milestones.sql");
+        validateHistory(actualsMissing ? migrations.filter(entry => entry.name !== "015_add_task_actuals.sql") : migrations, applied);
+        const appliedNames = new Set(applied.map(entry => entry.name));
 
         if (command === "status") {
-            for (const [index, migration] of migrations.entries()) {
-                messages.push(`${index < applied.length ? "applied" : "pending"}: ${migration.name}`);
+            for (const migration of migrations) {
+                messages.push(`${appliedNames.has(migration.name) ? "applied" : "pending"}: ${migration.name}`);
             }
         } else if (command === "baseline") {
             if (applied.length !== 0 || migrations[0].name !== LEGACY_MIGRATION) {
@@ -158,7 +174,7 @@ async function runMigrations({
                 }
             }
 
-            const pending = migrations.slice(applied.length);
+            const pending = migrations.filter(migration => !appliedNames.has(migration.name));
             if (pending.length > 0) {
                 await createHistory(client);
                 for (const migration of pending) {
@@ -172,7 +188,7 @@ async function runMigrations({
         } else if (applied.length === 0) {
             messages.push("No migrations to rollback.");
         } else {
-            const latest = migrations[applied.length - 1];
+            const latest = migrations.filter(migration => appliedNames.has(migration.name)).at(-1);
             if (!latest.downSql) {
                 throw new Error(`No rollback file for ${latest.name}; the original schema is preserved.`);
             }

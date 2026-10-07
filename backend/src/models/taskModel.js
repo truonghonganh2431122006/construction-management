@@ -23,7 +23,7 @@ function createTaskModel(pool) {
             return rows[0] || null;
         },
 
-        async save(projectId, taskId, { work_item_id, name, duration_days }) {
+        async save(projectId, taskId, { work_item_id, name, duration_days, actual_start = null, actual_finish = null, progress_percent = 0 }) {
             return withProjectTransaction(pool, projectId, async (client) => {
                 // Child creation/reparenting takes the same lock before checking tasks.
                 const item = await client.query(`
@@ -37,16 +37,17 @@ function createTaskModel(pool) {
 
                 const result = taskId == null
                     ? await client.query(`
-                        INSERT INTO tasks (work_item_id, name, duration_days)
-                        VALUES ($1, $2, $3) RETURNING *
-                    `, [work_item_id, name, duration_days])
+                        INSERT INTO tasks (work_item_id, name, duration_days, actual_start, actual_finish, progress_percent)
+                        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+                    `, [work_item_id, name, duration_days, actual_start, actual_finish, progress_percent])
                     : await client.query(`
                         UPDATE tasks t SET work_item_id = $1, name = $2, duration_days = $3,
+                            actual_start = $4, actual_finish = $5, progress_percent = $6,
                             updated_at = CURRENT_TIMESTAMP
                         FROM work_items w
-                        WHERE t.id = $4 AND w.id = t.work_item_id AND w.project_id = $5
+                        WHERE t.id = $7 AND w.id = t.work_item_id AND w.project_id = $8
                         RETURNING t.*
-                    `, [work_item_id, name, duration_days, taskId, projectId]);
+                    `, [work_item_id, name, duration_days, actual_start, actual_finish, progress_percent, taskId, projectId]);
                 return result.rows[0] || null;
             });
         },

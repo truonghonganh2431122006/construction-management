@@ -234,4 +234,147 @@ describe("S-08 & S-09 CPM Calculation Algorithm", () => {
             expect(result.get("D").slack).toBe(3);
         });
     });
+
+    describe("Task T-36 / S-16: Tính lại toàn mạng với mốc thực tế", () => {
+        const k01 = scenarios.find((s) => s.id === "K-01");
+
+        test("AC S-16 Ca 1: việc trên đường găng kết thúc thực tế trễ 3 ngày -> ngày hoàn thành dự án lùi đúng 3 ngày", () => {
+            const actual01 = scenarios.find((s) => s.id === "K-01-ACTUAL-01");
+            const graph = buildGraph(actual01.tasks, actual01.dependencies);
+            const { sortedTasks } = topologicalSort(graph);
+            const result = calculateScheduleCPM(sortedTasks);
+
+            expect(result.summary.plannedFinish).toBe(15);
+            expect(result.summary.currentFinish).toBe(18);
+            expect(result.summary.delayDays).toBe(3);
+            expect(result.get("F").ef).toBe(18);
+            expect(result.get("A").ef).toBe(6);
+        });
+
+        test("AC S-16 Ca 2: việc không găng trễ trong độ trễ cho phép -> ngày hoàn thành dự án không đổi", () => {
+            const actual02 = scenarios.find((s) => s.id === "K-01-ACTUAL-02");
+            const graph = buildGraph(actual02.tasks, actual02.dependencies);
+            const { sortedTasks } = topologicalSort(graph);
+            const result = calculateScheduleCPM(sortedTasks);
+
+            expect(result.summary.plannedFinish).toBe(15);
+            expect(result.summary.currentFinish).toBe(15);
+            expect(result.summary.delayDays).toBe(0);
+        });
+
+        test("AC S-16 Ca 3: việc không găng trễ nhiều hơn độ trễ cho phép -> việc đó trở thành găng và ngày hoàn thành lùi đúng phần vượt", () => {
+            const actual03 = scenarios.find((s) => s.id === "K-01-ACTUAL-03");
+            const graph = buildGraph(actual03.tasks, actual03.dependencies);
+            const { sortedTasks } = topologicalSort(graph);
+            const result = calculateScheduleCPM(sortedTasks);
+
+            // C kế hoạch kết thúc 5, slack 1. Thực tế kết thúc 8 (vượt 2 ngày so với 5+1=6).
+            // Dự án ban đầu 15 lùi đúng 2 ngày thành 17.
+            expect(result.summary.plannedFinish).toBe(15);
+            expect(result.summary.currentFinish).toBe(17);
+            expect(result.summary.delayDays).toBe(2);
+
+            // C và E trở thành găng
+            expect(result.get("C").isCritical).toBe(true);
+            expect(result.get("C").newlyCritical).toBe(true);
+            expect(result.get("C").initiallyCritical).toBe(false);
+
+            expect(result.get("E").isCritical).toBe(true);
+            expect(result.get("E").newlyCritical).toBe(true);
+            expect(result.get("E").initiallyCritical).toBe(false);
+
+            // B và D không còn găng
+            expect(result.get("B").isCritical).toBe(false);
+            expect(result.get("D").isCritical).toBe(false);
+        });
+
+        test("AC S-16 Ca 4: việc đang làm chưa xong -> kết sớm lấy max(kế hoạch, hôm nay + phần còn lại)", () => {
+            // Task B (kế hoạch ES=3, EF=7, duration=4).
+            // Hôm nay = 6. B đã xong 50% -> phần còn lại = 2 ngày.
+            // today + remaining = 6 + 2 = 8 > kế hoạch (7) -> EF(B) = 8.
+            const inProgressTasks = k01.tasks.map((t) => t.id === "B"
+                ? { ...t, actual_start: 3, progress_percent: 50 }
+                : { ...t });
+            const graph = buildGraph(inProgressTasks, k01.dependencies);
+            const { sortedTasks } = topologicalSort(graph);
+            const result = calculateScheduleCPM(sortedTasks, { today: 6 });
+
+            expect(result.get("B").ef).toBe(8);
+            // Kế hoạch là 7, nên dự án bị kéo dài từ 15 lên 16
+            expect(result.summary.currentFinish).toBe(16);
+            expect(result.summary.delayDays).toBe(1);
+        });
+
+        test("AC S-16: mạng 500 việc tính trong < 5 giây và không khoá giao diện (async)", async () => {
+            const bigTasks = [];
+            const bigDeps = [];
+            const N = 500;
+            for (let i = 1; i <= N; i++) {
+                bigTasks.push({ id: `T${i}`, name: `Task ${i}`, duration_days: 2 });
+                if (i > 1) {
+                    bigDeps.push({ predecessor_task_id: `T${i - 1}`, successor_task_id: `T${i}`, dependency_type: "FS", lag_days: 0 });
+                }
+            }
+            const graph = buildGraph(bigTasks, bigDeps);
+            const { sortedTasks } = topologicalSort(graph);
+            expect(sortedTasks).toHaveLength(500);
+
+            const start = Date.now();
+            const { calculateScheduleCPMAsync } = require("../src/services/cpmService");
+            const result = await calculateScheduleCPMAsync(sortedTasks);
+            const elapsed = Date.now() - start;
+
+            expect(elapsed).toBeLessThan(5000);
+            expect(result.size).toBe(500);
+            expect(result.get("T500").ef).toBe(1000);
+        });
+    });
+
+    describe("Task T-37 / S-16: Báo chênh lệch và đánh dấu việc mới trở thành găng", () => {
+        test("báo trễ một việc găng 3 ngày thì summary có delayDays = 3", () => {
+            const actual01 = scenarios.find((s) => s.id === "K-01-ACTUAL-01");
+            const result = calculateScheduleCPM(topologicalSort(buildGraph(actual01.tasks, actual01.dependencies)).sortedTasks);
+            expect(result.summary.delayDays).toBe(3);
+        });
+
+        test("việc mới trở thành găng có cờ newlyCritical = true phân biệt với việc găng từ đầu", () => {
+            const actual03 = scenarios.find((s) => s.id === "K-01-ACTUAL-03");
+            const result = calculateScheduleCPM(topologicalSort(buildGraph(actual03.tasks, actual03.dependencies)).sortedTasks);
+
+            // A găng từ đầu
+            expect(result.get("F").isCritical).toBe(true);
+            expect(result.get("F").initiallyCritical).toBe(true);
+            expect(result.get("F").newlyCritical).toBe(false);
+
+            // C mới trở thành găng
+            expect(result.get("C").isCritical).toBe(true);
+            expect(result.get("C").initiallyCritical).toBe(false);
+            expect(result.get("C").newlyCritical).toBe(true);
+        });
+    });
+
+    describe("Task T-40 / S-17: Tính lại tiến độ theo lịch", () => {
+        test("việc 6 ngày bắt đầu thứ năm kết thúc thứ tư tuần sau; thêm 1 ngày lễ lùi 1 ngày", () => {
+            const singleTask = [{ id: "A", name: "Công việc 6 ngày", duration_days: 6 }];
+            const graph = buildGraph(singleTask, []);
+            const { sortedTasks } = topologicalSort(graph);
+
+            // Lịch 6 ngày/tuần, bắt đầu thứ năm 2026-10-01
+            const res1 = calculateScheduleCPM(sortedTasks, {
+                calendar: {
+                    startDate: "2026-10-01",
+                    workingDays: [1, 2, 3, 4, 5, 6],
+                    holidays: []
+                }
+            });
+            // Kết thúc ở ngày thứ tư 2026-10-07
+            const { addWorkingDays } = require("../src/services/workingCalendar");
+            const finish1 = addWorkingDays("2026-10-01", res1.get("A").ef - 1, [1, 2, 3, 4, 5, 6], []);
+            expect(finish1).toBe("2026-10-07");
+
+            // Thêm 1 ngày lễ 2026-10-02 (thứ sáu) -> lùi 1 ngày thành 2026-10-08
+            const finish2 = addWorkingDays("2026-10-01", res1.get("A").ef - 1, [1, 2, 3, 4, 5, 6], ["2026-10-02"]);
+            expect(finish2).toBe("2026-10-08");
+        });
+    });
 });

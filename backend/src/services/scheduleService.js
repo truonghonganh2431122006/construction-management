@@ -162,7 +162,31 @@ function createCycleError(graph, cycleTasks, preferredStart) {
     return Object.assign(new Error(message), { status: 422, expose: true, cycle });
 }
 
-const { workingDate, countWorkingDays } = require("./workingCalendar");
+const { workingDate, countWorkingDays, countWorkingDaysInclusive } = require("./workingCalendar");
+
+const vietnamDay = (value = new Date()) => new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh", year: "numeric", month: "2-digit", day: "2-digit"
+}).format(value instanceof Date ? value : new Date(value));
+
+function actualOffset(value, info, finish = false) {
+    if (value == null) return null;
+    if (typeof value === "number") return value;
+    const origin = info?.project?.start_date;
+    const workingDays = info?.calendar?.working_days;
+    if (!origin || !workingDays?.length) return null;
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : vietnamDay(value);
+    // Start offsets count [project start, actual start); finish offsets include
+    // the actual finish day. An actual start on the project start is exactly 0.
+    const boundaryDate = new Date(`${date}T00:00:00Z`);
+    if (finish) boundaryDate.setUTCDate(boundaryDate.getUTCDate() + 1);
+    const boundary = boundaryDate.toISOString().slice(0, 10);
+    if (boundary === origin) return 0;
+    const end = new Date(`${boundary > origin ? boundary : origin}T00:00:00Z`);
+    end.setUTCDate(end.getUTCDate() - 1);
+    const count = countWorkingDaysInclusive(boundary > origin ? origin : boundary,
+        end.toISOString().slice(0, 10), workingDays, info.holidays);
+    return boundary > origin ? count : -count;
+}
 
 function traceCriticalPath(endTaskId, allTasks, dependencies) {
     const taskMap = new Map(allTasks.map(t => [t.id, t]));
@@ -276,11 +300,23 @@ async function checkMilestonesAndAlerts(transaction, projectId) {
 }
 
 async function ensureProjectSchedule(transaction, project, projectId) {
-    if (project.schedule_needs_recalc) {
+    // In-progress forecasts depend on today's working-day offset, even when no
+    // task was edited since the previous read.
+    const hasOngoing = !project.schedule_needs_recalc && transaction.hasOngoingActuals
+        ? await transaction.hasOngoingActuals(projectId) : false;
+    if (project.schedule_needs_recalc || hasOngoing) {
         const graph = await loadProjectGraph(transaction.tasks, projectId);
         const sorted = topologicalSort(graph);
         if (sorted.hasCycle) throw createCycleError(graph, sorted.cycleTasks);
-        const results = sorted.sortedTasks.length ? calculateScheduleCPM(sorted.sortedTasks) : new Map();
+        const info = transaction.getProjectCalendarInfo ? await transaction.getProjectCalendarInfo(projectId) : null;
+        const tasks = sorted.sortedTasks.map(task => ({ ...task,
+            actual_start: actualOffset(task.actual_start, info),
+            actual_finish: actualOffset(task.actual_finish, info, true)
+        }));
+        const options = { today: actualOffset(vietnamDay(), info) ?? 0 };
+        const results = tasks.length > 200
+            ? await require("./cpmService").calculateScheduleCPMAsync(tasks, options)
+            : tasks.length ? calculateScheduleCPM(tasks, options) : new Map();
         await transaction.replaceResults(projectId, [...results.values()]);
     }
     // After schedule is calculated or confirmed clean, evaluate milestones and alerts (T-44)
@@ -292,7 +328,12 @@ function createScheduleService({ model }) {
         async getSchedule(projectId, { criticalOnly = false } = {}) {
             return model.withProjectTransaction(projectId, async (transaction, project) => {
                 await ensureProjectSchedule(transaction, project, projectId);
-                return transaction.listResults(projectId, criticalOnly);
+                const schedule = await transaction.listResults(projectId, criticalOnly);
+                const allResults = criticalOnly ? await transaction.listResults(projectId, false) : schedule;
+                const plannedFinish = Math.max(0, ...allResults.map(task => task.plannedEf ?? task.ef));
+                const currentFinish = Math.max(0, ...allResults.map(task => task.ef));
+                schedule.summary = { plannedFinish, currentFinish, delayDays: currentFinish - plannedFinish };
+                return schedule;
             });
         },
 

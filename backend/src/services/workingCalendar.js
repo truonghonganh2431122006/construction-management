@@ -27,8 +27,59 @@ function workingDate(startDate, offset, workingDays, holidays = []) {
     return new Date(low * DAY).toISOString().slice(0, 10);
 }
 
-// Count working days between fromDate and toDate.
-// When toDate is strictly after fromDate, count the number of working days in (fromDate, toDate].
+function addWorkingDays(startDate, nDays, workingDays = [1, 2, 3, 4, 5, 6], holidays = []) {
+    if (!startDate || !workingDays?.length) return null;
+    const n = Number(nDays) || 0;
+    const days = new Set(workingDays);
+    const excluded = new Set(holidays.map(ordinal).filter((d) => days.has(weekday(d))));
+    let curr = ordinal(startDate);
+    if (!Number.isFinite(curr)) return null;
+
+    // Advance to next valid working day if startDate is a rest/holiday day
+    if (n >= 0) {
+        while (!days.has(weekday(curr)) || excluded.has(curr)) {
+            curr++;
+        }
+        let remaining = n;
+        while (remaining > 0) {
+            curr++;
+            if (days.has(weekday(curr)) && !excluded.has(curr)) {
+                remaining--;
+            }
+        }
+    } else {
+        while (!days.has(weekday(curr)) || excluded.has(curr)) {
+            curr--;
+        }
+        let remaining = -n;
+        while (remaining > 0) {
+            curr--;
+            if (days.has(weekday(curr)) && !excluded.has(curr)) {
+                remaining--;
+            }
+        }
+    }
+    return new Date(curr * DAY).toISOString().slice(0, 10);
+}
+
+function countWorkingDaysInclusive(startDate, endDate, workingDays = [1, 2, 3, 4, 5, 6], holidays = []) {
+    if (!startDate || !endDate || !workingDays?.length) return 0;
+    const start = ordinal(startDate);
+    const end = ordinal(endDate);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
+    if (start > end) return -countWorkingDaysInclusive(endDate, startDate, workingDays, holidays);
+
+    const days = new Set(workingDays);
+    const excluded = new Set(holidays.map(ordinal).filter((d) => days.has(weekday(d))));
+    let count = 0;
+    for (let d = start; d <= end; d++) {
+        if (days.has(weekday(d)) && !excluded.has(d)) {
+            count++;
+        }
+    }
+    return count;
+}
+
 function countWorkingDays(fromDate, toDate, workingDays, holidays = []) {
     if (!fromDate || !toDate || !workingDays?.length) return 0;
     const start = ordinal(fromDate);
@@ -48,4 +99,4 @@ function countWorkingDays(fromDate, toDate, workingDays, holidays = []) {
     return workingCount;
 }
 
-module.exports = { workingDate, countWorkingDays };
+module.exports = { workingDate, addWorkingDays, countWorkingDays, countWorkingDaysInclusive };

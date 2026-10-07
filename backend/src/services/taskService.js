@@ -25,6 +25,12 @@ async function translateErrors(operation) {
             throw inputError("Cặp công việc trước và sau đã có quan hệ phụ thuộc", 409);
         }
         if (error.code === "23503") throw inputError("Công việc hoặc hạng mục không còn tồn tại", 409);
+        if (error.code === "23514" && (error.constraint === "tasks_actual_dates_check" || String(error.message).includes("tasks_actual_dates_check"))) {
+            throw inputError("Ngày kết thúc thực tế không được sớm hơn ngày bắt đầu");
+        }
+        if (error.code === "23514" && (error.constraint === "tasks_progress_percent_check" || String(error.message).includes("tasks_progress_percent_check"))) {
+            throw inputError("Tiến độ phải là số nguyên từ 0 đến 100");
+        }
         if (error.code === "23514") throw inputError("Thời lượng hoặc quan hệ phụ thuộc không hợp lệ");
         throw error;
     }
@@ -46,7 +52,10 @@ function createTaskService({ model }) {
             const values = {
                 work_item_id: body.work_item_id === undefined ? current.work_item_id : body.work_item_id,
                 name: body.name === undefined ? current.name : body.name,
-                duration_days: body.duration_days === undefined ? current.duration_days : body.duration_days
+                duration_days: body.duration_days === undefined ? current.duration_days : body.duration_days,
+                actual_start: body.actual_start === undefined ? (current.actual_start || null) : (body.actual_start || null),
+                actual_finish: body.actual_finish === undefined ? (current.actual_finish || null) : (body.actual_finish || null),
+                progress_percent: body.progress_percent === undefined ? (current.progress_percent ?? 0) : Number(body.progress_percent)
             };
             validateId(values.work_item_id);
             if (typeof values.name !== "string" || !values.name.trim() || values.name.trim().length > 255) {
@@ -54,6 +63,12 @@ function createTaskService({ model }) {
             }
             if (!positiveInteger(values.duration_days)) {
                 throw inputError("Thời lượng phải là số nguyên ngày lớn hơn 0");
+            }
+            if (!Number.isInteger(values.progress_percent) || values.progress_percent < 0 || values.progress_percent > 100) {
+                throw inputError("Tiến độ phải là số nguyên từ 0 đến 100");
+            }
+            if (values.actual_start && values.actual_finish && values.actual_finish < values.actual_start) {
+                throw inputError("Ngày kết thúc thực tế không được sớm hơn ngày bắt đầu");
             }
             values.name = values.name.trim();
             const task = await translateErrors(() => model.save(projectId, taskId, values));

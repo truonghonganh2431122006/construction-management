@@ -4,7 +4,7 @@ import {
     Route,
     Navigate
 } from "react-router-dom";
-
+import { Suspense } from "react";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -32,8 +32,8 @@ function App() {
     return (
 
         <BrowserRouter>
-
-            <Routes>
+            <Suspense fallback={<div className="route-loading" role="status">Đang tải trang…</div>}>
+                <Routes>
 
                 <Route 
                     path="/login"
@@ -74,9 +74,8 @@ function App() {
                 <Route path="*" element={<PendingModule />} />
 
 
-            </Routes>
-
-
+                </Routes>
+            </Suspense>
         </BrowserRouter>
 
     );

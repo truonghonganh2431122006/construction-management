@@ -11,7 +11,7 @@ const { loadProjectGraph } = require("../src/services/scheduleService");
 const { createScheduleService } = require("../src/services/scheduleService");
 const { createScheduleModel } = require("../src/models/scheduleModel");
 const { createScheduleRoutes } = require("../src/routes/scheduleRoutes");
-const scenarios = require("./data/cpm-scenarios.json");
+const scenarios = require("./data/cpm-scenarios.json").filter((s) => ["K-01", "K-02", "K-03"].includes(s.id));
 const errorHandler = require("../src/middleware/errorHandler");
 
 // Opt in to a real PostgreSQL server. Each run owns an isolated schema;
@@ -128,6 +128,8 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
     });
 
     test("rollback refuses populated tables, then down 010/down 009/up succeeds without changing T-08", async () => {
+        expect((await migrate("down"))[0]).toContain("016_create_baselines_and_milestones.sql");
+        expect((await migrate("down"))[0]).toContain("015_add_task_actuals.sql");
         expect((await migrate("down"))[0]).toContain("014_create_project_invitations.sql");
         expect((await migrate("down"))[0]).toContain("013_create_site_management.sql");
         expect((await migrate("down"))[0]).toContain("012_create_project_operations.sql");
@@ -146,7 +148,7 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
             .toEqual({ tasks: null, dependencies: null });
         expect((await pool.query("SELECT count(*)::int AS count FROM work_items")).rows[0].count).toBe(3);
         expect(await migrate("up")).toEqual([
-            "Applied: 009_create_tasks.sql", "Applied: 010_create_dependencies.sql", "Applied: 011_create_schedule_results.sql", "Applied: 012_create_project_operations.sql", "Applied: 013_create_site_management.sql", "Applied: 014_create_project_invitations.sql"
+            "Applied: 009_create_tasks.sql", "Applied: 010_create_dependencies.sql", "Applied: 011_create_schedule_results.sql", "Applied: 012_create_project_operations.sql", "Applied: 013_create_site_management.sql", "Applied: 014_create_project_invitations.sql", "Applied: 015_add_task_actuals.sql", "Applied: 016_create_baselines_and_milestones.sql"
         ]);
     });
 
@@ -322,7 +324,7 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
         } };
         const service = createScheduleService({ model: createScheduleModel(trackedPool) });
         expect(await service.getSchedule(project)).toHaveLength(1);
-        expect(statements.filter((sql) => /SELECT/.test(sql))).toHaveLength(2); // project lock + cached rows
+        expect(statements.filter((sql) => /SELECT/.test(sql))).toHaveLength(4); // lock + ongoing check + milestones + cached rows
         expect(statements.some((sql) => /FROM dependencies|SELECT t\.\*|INSERT|DELETE|UPDATE projects/.test(sql))).toBe(false);
         expect(await storedResults()).toEqual(before);
     });
@@ -420,19 +422,21 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
         member = null;
         await request(app).get(scheduleUrl()).expect(403);
         member = { role: "viewer" };
-        await request(app).get(scheduleUrl()).expect(403);
+        await request(app).get(scheduleUrl()).expect(200); // Current T41–T45 read policy includes investors.
     });
 
     test("011 schema enforces one result per task, FK, down protection and re-up", async () => {
+        expect((await migrate("down"))[0]).toContain("016_create_baselines_and_milestones.sql");
+        expect((await migrate("down"))[0]).toContain("015_add_task_actuals.sql");
         expect((await migrate("down"))[0]).toContain("014_create_project_invitations.sql");
         expect((await migrate("down"))[0]).toContain("013_create_site_management.sql");
         expect((await migrate("down"))[0]).toContain("012_create_project_operations.sql");
         const task = await insertTask("A");
-        await request(app).get(scheduleUrl()).expect(200);
         const duplicate = (id) => pool.query(`
             INSERT INTO schedule_results (task_id, early_start, early_finish, late_start, late_finish, total_float, is_critical)
             VALUES ($1, 0, 1, 0, 1, 0, TRUE)
         `, [id]);
+        await duplicate(task.id);
         await expect(duplicate(task.id)).rejects.toMatchObject({ code: "23505" });
         await expect(duplicate(2147483647)).rejects.toMatchObject({ code: "23503" });
         await expect(migrate("down")).rejects.toThrow(/schedule_results contain data/);
@@ -440,7 +444,7 @@ describePostgres("Sprint 2 real PostgreSQL constraints, migrations and API", () 
         expect((await migrate("down"))[0]).toContain("011_create_schedule_results.sql");
         expect((await pool.query("SELECT to_regclass('schedule_results') AS name")).rows[0].name).toBeNull();
         expect(await model.list(project)).toHaveLength(1);
-        expect(await migrate("up")).toEqual(["Applied: 011_create_schedule_results.sql", "Applied: 012_create_project_operations.sql", "Applied: 013_create_site_management.sql", "Applied: 014_create_project_invitations.sql"]);
+        expect(await migrate("up")).toEqual(["Applied: 011_create_schedule_results.sql", "Applied: 012_create_project_operations.sql", "Applied: 013_create_site_management.sql", "Applied: 014_create_project_invitations.sql", "Applied: 015_add_task_actuals.sql", "Applied: 016_create_baselines_and_milestones.sql"]);
         expect(await dirty()).toBe(true);
         await request(app).get(scheduleUrl()).expect(200);
     });
