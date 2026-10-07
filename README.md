@@ -6,6 +6,8 @@ Sprint 2 T-11–T-17: xem [audit, API, cách kiểm thử và kết quả](docs/
 
 Sprint 2 T-22–T-28: xem [dữ liệu CPM, chống vòng, cache và trang tiến độ](docs/sprint-2-t22-t28.md).
 
+Sprint 3 T-29–T-45: xem [tích hợp Gantt, actual progress, lịch làm việc, baseline và milestone](docs/sprint3/HANDOFF.md). Renderer dùng DOM cho thanh công việc và SVG cho quan hệ phụ thuộc; danh sách lớn được giới hạn số hàng render theo vùng đang xem.
+
 ## Công nghệ sử dụng
 
 ### Backend
@@ -204,10 +206,19 @@ npm run migrate
 ```
 
 Runner chạy các file `NNN_ten_migration.sql` theo thứ tự và bỏ qua các migration
-đã ghi nhận. File `.down.sql` chỉ dùng khi rollback. Mỗi lần chạy dùng một
+đã ghi nhận, kể cả khi một migration mới hơn đã được áp dụng trước đó. File
+`.down.sql` chỉ dùng khi rollback. Mỗi lần chạy dùng một
 transaction trên cùng connection; nếu lỗi thì toàn bộ thay đổi schema và lịch
 sử của lần chạy đó được rollback. Checksum phát hiện sửa đổi migration đã áp
 dụng; khóa advisory ngăn hai runner chạy đồng thời trong cùng database/schema.
+
+Nếu database cũ đã ghi nhận `012_add_actual_progress.sql` hoặc bản T-34 cũ
+`015_add_actual_progress.sql`, runner chỉ nhận diện lại migration khi checksum
+được biết và các cột cùng constraint thực tế trên `tasks` khớp. Migration
+T-34 hiện dùng version 016 để không xung đột với migration `015_add_task_actuals`
+từ `main`. Khi chạy `up`, việc đổi tên bản ghi lịch sử và áp dụng các migration
+còn thiếu nằm trong cùng transaction. Nếu kiểm tra không khớp, runner dừng mà
+không sửa lịch sử; không tự đổi tên hoặc xóa dòng trong `schema_migrations`.
 
 ### Rollback
 

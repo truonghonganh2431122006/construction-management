@@ -1,4 +1,4 @@
-function createTaskController({ service }) {
+function createTaskController({ service, progressService }) {
     return {
         async list(req, res) {
             res.json({ tasks: await service.list(Number(req.params.projectId)) });
@@ -8,6 +8,11 @@ function createTaskController({ service }) {
         },
         async update(req, res) {
             res.json({ task: await service.save(Number(req.params.projectId), Number(req.params.taskId), req.body) });
+        },
+        async updateProgress(req, res) {
+            res.json({ task: await progressService.updateProgress(
+                Number(req.params.projectId), Number(req.params.taskId), req.body
+            ) });
         },
         async listDependencies(req, res) {
             res.json({ dependencies: await service.listDependencies(Number(req.params.projectId)) });

@@ -3,8 +3,8 @@ import axios from "axios";
 const projectItems = (projectId) => `/projects/${projectId}/items`;
 const requestConfig = { withCredentials: true };
 
-export async function listWorkItems(projectId) {
-    const { data } = await axios.get(projectItems(projectId), requestConfig);
+export async function listWorkItems(projectId, { signal } = {}) {
+    const { data } = await axios.get(projectItems(projectId), { ...requestConfig, signal });
     if (!Array.isArray(data?.items)) {
         throw new Error("API trả về danh sách hạng mục không hợp lệ");
     }
