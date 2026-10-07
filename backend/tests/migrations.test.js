@@ -182,7 +182,7 @@ describe("Migration runner (no database connection)", () => {
         expect(statements(client).at(-1)).toBe("COMMIT");
     });
 
-    test("a T-34 history recorded as 015 is adopted as 016 after upstream 015 is added", async () => {
+    test("a T-34 history recorded as 015 is adopted as 016 after the baseline migration is added at 015", async () => {
         const legacy015 = {
             name: "015_add_actual_progress.sql",
             checksum: history.at(-1).checksum
@@ -197,7 +197,7 @@ describe("Migration runner (no database connection)", () => {
         );
         expect(statements(client).filter(statement => sql.includes(statement)))
             .toEqual([sql[14]]);
-        expect(messages).toEqual(["Applied: 015_add_task_actuals.sql"]);
+        expect(messages).toEqual(["Applied: 015_create_baselines_and_milestones.sql"]);
         expect(statements(client).at(-1)).toBe("COMMIT");
     });
 
@@ -210,7 +210,7 @@ describe("Migration runner (no database connection)", () => {
             "pending: 012_create_project_operations.sql",
             "pending: 013_create_site_management.sql",
             "pending: 014_create_project_invitations.sql",
-            "pending: 015_add_task_actuals.sql",
+            "pending: 015_create_baselines_and_milestones.sql",
             "applied: 016_add_actual_progress.sql"
         ]);
         expect(statements(client).some(statement => statement.startsWith("UPDATE schema_migrations"))).toBe(false);
