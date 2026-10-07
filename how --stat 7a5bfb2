@@ -1,0 +1,95 @@
+[33mcommit 99bc21d308b1c2a693966ab9284a41c7d833de61[m
+Author: Jarvis <dtc245200252@ictu.edu.vn>
+Date:   Fri Sep 25 07:24:26 2026 +0700
+
+    Hoan thanh task 6 - task 10
+
+ .github/workflows/ci.yml                           |   51 [32m+[m
+ .gitignore                                         |    6 [32m+[m
+ README.md                                          |  485 [32m++[m
+ backend/.dockerignore                              |    9 [32m+[m
+ backend/.env.auth.example                          |    7 [32m+[m
+ backend/.env.staging.example                       |    6 [32m+[m
+ backend/Dockerfile                                 |   20 [32m+[m
+ backend/eslint.config.cjs                          |   23 [32m+[m
+ backend/jest.config.cjs                            |    4 [32m+[m
+ backend/package-lock.json                          | 6832 [32m++++++++++++++++++++[m
+ backend/package.json                               |   39 [32m+[m
+ backend/src/app.js                                 |   34 [32m+[m
+ backend/src/config/database.js                     |   12 [32m+[m
+ backend/src/config/password.js                     |   32 [32m+[m
+ backend/src/config/session.js                      |   54 [32m+[m
+ backend/src/controllers/authController.js          |   82 [32m+[m
+ backend/src/controllers/homeController.js          |    7 [32m+[m
+ backend/src/controllers/workItemController.js      |   94 [32m+[m
+ backend/src/middleware/README.md                   |   12 [32m+[m
+ backend/src/middleware/auth.js                     |   43 [32m+[m
+ backend/src/middleware/cors.js                     |   20 [32m+[m
+ backend/src/middleware/errorHandler.js             |   37 [32m+[m
+ backend/src/middleware/projectAccess.js            |   30 [32m+[m
+ backend/src/migrations/001_create_users.sql        |    8 [32m+[m
+ backend/src/migrations/002_create_roles.down.sql   |   12 [32m+[m
+ backend/src/migrations/002_create_roles.sql        |    6 [32m+[m
+ backend/src/migrations/003_update_users.down.sql   |   27 [32m+[m
+ backend/src/migrations/003_update_users.sql        |   10 [32m+[m
+ .../src/migrations/004_add_login_security.down.sql |   18 [32m+[m
+ backend/src/migrations/004_add_login_security.sql  |    3 [32m+[m
+ .../migrations/005_create_user_sessions.down.sql   |   11 [32m+[m
+ .../src/migrations/005_create_user_sessions.sql    |    7 [32m+[m
+ .../src/migrations/006_add_user_fullname.down.sql  |   11 [32m+[m
+ backend/src/migrations/006_add_user_fullname.sql   |    2 [32m+[m
+ .../migrations/007_create_project_members.down.sql |   12 [32m+[m
+ .../src/migrations/007_create_project_members.sql  |   13 [32m+[m
+ .../008_create_projects_and_work_items.down.sql    |   28 [32m+[m
+ .../008_create_projects_and_work_items.sql         |   27 [32m+[m
+ backend/src/models/README.md                       |   12 [32m+[m
+ backend/src/models/projectMemberModel.js           |   20 [32m+[m
+ backend/src/models/userModel.js                    |  130 [32m+[m
+ backend/src/models/workItemCrudModel.js            |  114 [32m+[m
+ backend/src/models/workItemModel.js                |   49 [32m+[m
+ backend/src/routes/authRoutes.js                   |   13 [32m+[m
+ backend/src/routes/index.js                        |    8 [32m+[m
+ backend/src/routes/projectRoutes.js                |   39 [32m+[m
+ backend/src/routes/workItemRoutes.js               |   29 [32m+[m
+ backend/src/run-migration.js                       |  225 [32m+[m
+ backend/src/seed-roles.js                          |   30 [32m+[m
+ backend/src/server.js                              |    9 [32m+[m
+ backend/src/services/authService.js                |  161 [32m+[m
+ backend/src/test-db.js                             |   17 [32m+[m
+ backend/tests/app.test.js                          |   21 [32m+[m
+ backend/tests/auth.test.js                         |  620 [32m++[m
+ backend/tests/migrations.test.js                   |  246 [32m+[m
+ backend/tests/projectAccess.test.js                |   39 [32m+[m
+ backend/tests/projectMembersMigration.test.js      |   52 [32m+[m
+ backend/tests/projectsMigration.test.js            |   38 [32m+[m
+ backend/tests/workItemController.test.js           |   45 [32m+[m
+ backend/tests/workItemValidation.test.js           |   54 [32m+[m
+ backend/tests/workItems.test.js                    |   21 [32m+[m
+ cookies.txt                                        |    5 [32m+[m
+ docker-compose.staging.yml                         |   18 [32m+[m
+ docker-compose.yml                                 |   18 [32m+[m
+ frontend/.gitignore                                |   24 [32m+[m
+ frontend/README.md                                 |   16 [32m+[m
+ frontend/eslint.config.js                          |   21 [32m+[m
+ frontend/index.html                                |   13 [32m+[m
+ frontend/package-lock.json                         | 3819 [32m+++++++++++[m
+ frontend/package.json                              |   30 [32m+[m
+ frontend/public/favicon.svg                        |    1 [32m+[m
+ frontend/public/icons.svg                          |   24 [32m+[m
+ frontend/src/App.css                               |   13 [32m+[m
+ frontend/src/App.jsx                               |   56 [32m+[m
+ frontend/src/assets/anh_login.png                  |  Bin [31m0[m -> [32m2440547[m bytes
+ frontend/src/components/WorkItemTree.jsx           |   77 [32m+[m
+ frontend/src/index.css                             |  111 [32m+[m
+ frontend/src/main.jsx                              |   16 [32m+[m
+ frontend/src/pages/Home.jsx                        |   65 [32m+[m
+ frontend/src/pages/Login.jsx                       |  105 [32m+[m
+ frontend/src/pages/Register.jsx                    |  373 [32m++[m
+ frontend/src/pages/WorkItems.jsx                   |   77 [32m+[m
+ frontend/src/services/workItemApi.js               |   28 [32m+[m
+ frontend/src/styles/Home.css                       |   55 [32m+[m
+ frontend/src/styles/Login.css                      |  791 [32m+++[m
+ frontend/src/styles/WorkItems.css                  |   64 [32m+[m
+ frontend/vite.config.js                            |   23 [32m+[m
+ login.json                                         |    1 [32m+[m
+ 88 files changed, 15970 insertions(+)
