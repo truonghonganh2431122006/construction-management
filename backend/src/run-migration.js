@@ -3,6 +3,11 @@ const path = require("path");
 const { createHash } = require("crypto");
 
 const LEGACY_MIGRATION = "001_create_users.sql";
+const LEGACY_PROGRESS_MIGRATIONS = new Map([
+    ["012_add_actual_progress.sql", "7898766f8a5ebc1888ccc61575e2df0f0b6bbb2f2c5732134995000974d42dee"],
+    ["015_add_actual_progress.sql", null]
+]);
+const PROGRESS_MIGRATION = "016_add_actual_progress.sql";
 const COMMANDS = ["up", "down", "status", "baseline"];
 
 function readMigrations(directory) {
@@ -37,15 +42,93 @@ function readMigrations(directory) {
 }
 
 function validateHistory(migrations, applied) {
-    for (const [index, entry] of applied.entries()) {
+    const migrationIndexes = new Map(migrations.map((migration, index) => [migration.name, index]));
+    let previousIndex = -1;
+    for (const entry of applied) {
+        const index = migrationIndexes.get(entry.name);
         const migration = migrations[index];
-        if (!migration || migration.name !== entry.name) {
+        if (index === undefined || index <= previousIndex) {
             throw new Error("Migration history does not match the ordered migration files.");
         }
         if (migration.checksum !== entry.checksum) {
             throw new Error(`Applied migration has changed: ${entry.name}`);
         }
+        previousIndex = index;
     }
+}
+
+async function adoptLegacyProgressMigration(client, migrations, applied, { record = true } = {}) {
+    const legacy = applied.find(entry => LEGACY_PROGRESS_MIGRATIONS.has(entry.name));
+    if (!legacy) return applied;
+    const expectedChecksum = LEGACY_PROGRESS_MIGRATIONS.get(legacy.name);
+    const progressMigration = migrations.find(migration => migration.name === PROGRESS_MIGRATION);
+    if (!progressMigration
+        || (expectedChecksum === null
+            ? legacy.checksum !== progressMigration.checksum
+            : legacy.checksum !== expectedChecksum)) {
+        throw new Error("Legacy actual-progress migration checksum is unknown; migration history was not changed.");
+    }
+
+    if (!progressMigration || applied.some(entry => entry.name === PROGRESS_MIGRATION)) {
+        throw new Error("Cannot safely reconcile the legacy actual-progress migration history.");
+    }
+
+    const columns = await client.query(`
+        SELECT column_name, data_type, is_nullable, column_default
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'tasks'
+          AND column_name = ANY($1::text[])
+    `, [["actual_start_date", "actual_end_date", "percent_complete"]]);
+    const expectedColumns = new Map([
+        ["actual_start_date", ["date", "YES"]],
+        ["actual_end_date", ["date", "YES"]],
+        ["percent_complete", ["integer", "NO", "0"]]
+    ]);
+    for (const column of columns.rows) {
+        if (expectedColumns.has(column.column_name)) {
+            const expected = expectedColumns.get(column.column_name);
+            if (column.data_type !== expected[0] || column.is_nullable !== expected[1]
+                || (expected[2] !== undefined && column.column_default !== expected[2])) {
+                throw new Error("Legacy actual-progress schema does not match; migration history was not changed.");
+            }
+            expectedColumns.delete(column.column_name);
+        }
+    }
+    if (expectedColumns.size > 0) {
+        throw new Error("Legacy actual-progress columns are incomplete; migration history was not changed.");
+    }
+
+    const constraints = await client.query(`
+        SELECT conname, contype, convalidated, pg_get_constraintdef(oid) AS definition
+        FROM pg_constraint
+        WHERE conrelid = 'tasks'::regclass
+          AND conname = ANY($1::text[])
+    `, [["tasks_percent_complete_check", "tasks_actual_dates_order_check"]]);
+    const constraintDefinitions = new Map(constraints.rows.map(row => [row.conname, row]));
+    const percentConstraint = constraintDefinitions.get("tasks_percent_complete_check");
+    const datesConstraint = constraintDefinitions.get("tasks_actual_dates_order_check");
+    const compactDefinition = definition => definition.toLowerCase().replace(/\s/g, "");
+    if (!percentConstraint || percentConstraint.contype !== "c" || !percentConstraint.convalidated
+        || !compactDefinition(percentConstraint.definition).includes("percent_complete>=0")
+        || !compactDefinition(percentConstraint.definition).includes("percent_complete<=100")
+        || !datesConstraint || datesConstraint.contype !== "c" || !datesConstraint.convalidated
+        || !compactDefinition(datesConstraint.definition).includes("actual_start_dateisnull")
+        || !compactDefinition(datesConstraint.definition).includes("actual_end_dateisnull")
+        || !compactDefinition(datesConstraint.definition).includes("actual_end_date>=actual_start_date")) {
+        throw new Error("Legacy actual-progress constraints are incomplete; migration history was not changed.");
+    }
+
+    if (record) {
+        await client.query(
+            "UPDATE schema_migrations SET name = $1, checksum = $2 WHERE name = $3 AND checksum = $4",
+            [progressMigration.name, progressMigration.checksum, legacy.name, legacy.checksum]
+        );
+    }
+    return applied
+        .filter(entry => entry !== legacy)
+        .concat({ name: progressMigration.name, checksum: progressMigration.checksum })
+        .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 async function validateLegacyUsers(client) {
@@ -136,14 +219,17 @@ async function runMigrations({
         const applied = history.rows[0].present
             ? (await client.query("SELECT name, checksum FROM schema_migrations ORDER BY name")).rows
             : [];
-        validateHistory(migrations, applied);
+        const reconciled = command === "up" || command === "status"
+            ? await adoptLegacyProgressMigration(client, migrations, applied, { record: command === "up" })
+            : applied;
+        validateHistory(migrations, reconciled);
 
         if (command === "status") {
-            for (const [index, migration] of migrations.entries()) {
-                messages.push(`${index < applied.length ? "applied" : "pending"}: ${migration.name}`);
+            for (const migration of migrations) {
+                messages.push(`${reconciled.some(entry => entry.name === migration.name) ? "applied" : "pending"}: ${migration.name}`);
             }
         } else if (command === "baseline") {
-            if (applied.length !== 0 || migrations[0].name !== LEGACY_MIGRATION) {
+            if (reconciled.length !== 0 || migrations[0].name !== LEGACY_MIGRATION) {
                 throw new Error("Baseline is only for an existing T-01 database with no recorded migrations.");
             }
             await validateLegacyUsers(client);
@@ -151,14 +237,15 @@ async function runMigrations({
             await recordMigration(client, migrations[0]);
             messages.push(`Recorded existing schema: ${LEGACY_MIGRATION}`);
         } else if (command === "up") {
-            if (applied.length === 0 && migrations[0].name === LEGACY_MIGRATION) {
+            if (reconciled.length === 0 && migrations[0].name === LEGACY_MIGRATION) {
                 const users = await client.query("SELECT to_regclass('users') IS NOT NULL AS present");
                 if (users.rows[0].present) {
                     throw new Error("Existing users table detected. Review and run npm run migrate:baseline first.");
                 }
             }
 
-            const pending = migrations.slice(applied.length);
+            const appliedNames = new Set(reconciled.map(entry => entry.name));
+            const pending = migrations.filter(migration => !appliedNames.has(migration.name));
             if (pending.length > 0) {
                 await createHistory(client);
                 for (const migration of pending) {
@@ -169,10 +256,11 @@ async function runMigrations({
             } else {
                 messages.push("No pending migrations.");
             }
-        } else if (applied.length === 0) {
+        } else if (reconciled.length === 0) {
             messages.push("No migrations to rollback.");
         } else {
-            const latest = migrations[applied.length - 1];
+            const appliedNames = new Set(reconciled.map(entry => entry.name));
+            const latest = migrations.filter(migration => appliedNames.has(migration.name)).at(-1);
             if (!latest.downSql) {
                 throw new Error(`No rollback file for ${latest.name}; the original schema is preserved.`);
             }

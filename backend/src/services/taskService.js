@@ -15,6 +15,19 @@ function validateId(value) {
     if (!positiveInteger(value)) throw inputError("Mã công việc hoặc hạng mục không hợp lệ");
 }
 
+function nullableDate(value, field) {
+    if (value === null || value === undefined || value === "") return null;
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        throw inputError(`${field} phải có định dạng YYYY-MM-DD`);
+    }
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+        throw inputError(`${field} không hợp lệ`);
+    }
+    return value;
+}
+
 async function translateErrors(operation) {
     try {
         return await operation();
@@ -25,6 +38,14 @@ async function translateErrors(operation) {
             throw inputError("Cặp công việc trước và sau đã có quan hệ phụ thuộc", 409);
         }
         if (error.code === "23503") throw inputError("Công việc hoặc hạng mục không còn tồn tại", 409);
+        if (error.code === "23514" && ["tasks_actual_dates_check", "tasks_actual_dates_order_check"]
+            .some(constraint => error.constraint === constraint || String(error.message).includes(constraint))) {
+            throw inputError("Ngày kết thúc thực tế không được sớm hơn ngày bắt đầu");
+        }
+        if (error.code === "23514" && ["tasks_progress_percent_check", "tasks_percent_complete_check"]
+            .some(constraint => error.constraint === constraint || String(error.message).includes(constraint))) {
+            throw inputError("Tiến độ phải là số nguyên từ 0 đến 100");
+        }
         if (error.code === "23514") throw inputError("Thời lượng hoặc quan hệ phụ thuộc không hợp lệ");
         throw error;
     }
@@ -59,6 +80,33 @@ function createTaskService({ model }) {
             const task = await translateErrors(() => model.save(projectId, taskId, values));
             if (!task) throw inputError("Không tìm thấy công việc", 404);
             return task;
+        },
+
+        async updateProgress(projectId, taskId, body) {
+            validateId(taskId);
+            if (!body || typeof body !== "object" || Array.isArray(body)) throw inputError("Dữ liệu không hợp lệ");
+            const current = await model.findById(projectId, taskId);
+            if (!current) throw inputError("Không tìm thấy công việc", 404);
+            const supplied = (snake, camel, fallback) => Object.prototype.hasOwnProperty.call(body, snake)
+                ? body[snake] : Object.prototype.hasOwnProperty.call(body, camel) ? body[camel] : fallback;
+            const values = {
+                actual_start_date: supplied("actual_start_date", "actualStart", current.actual_start_date ?? current.actualStart ?? null),
+                actual_end_date: supplied("actual_end_date", "actualEnd", current.actual_end_date ?? current.actualEnd ?? null),
+                percent_complete: supplied("percent_complete", "percentComplete", current.percent_complete ?? current.percentComplete ?? 0)
+            };
+            values.actual_start_date = nullableDate(values.actual_start_date, "Ngày bắt đầu thực tế");
+            values.actual_end_date = nullableDate(values.actual_end_date, "Ngày kết thúc thực tế");
+            if (values.actual_start_date && values.actual_end_date && values.actual_end_date < values.actual_start_date) {
+                throw inputError("Ngày kết thúc thực tế không được sớm hơn ngày bắt đầu thực tế");
+            }
+            if (!Number.isInteger(values.percent_complete) || values.percent_complete < 0 || values.percent_complete > 100) {
+                throw inputError("Phần trăm hoàn thành phải nằm trong khoảng 0 đến 100");
+            }
+            return translateErrors(async () => {
+                const task = await model.updateProgress(projectId, taskId, values);
+                if (!task) throw inputError("Không tìm thấy công việc", 404);
+                return task;
+            });
         },
 
         async addDependency(projectId, successorId, body) {

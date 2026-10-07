@@ -1,4 +1,4 @@
-ALTER TABLE users ADD COLUMN last_login_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
 
 CREATE TABLE project_invitations (
     id SERIAL PRIMARY KEY,

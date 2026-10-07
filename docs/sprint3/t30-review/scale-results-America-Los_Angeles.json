@@ -1,0 +1,81 @@
+{
+  "timezone": "America/Los_Angeles",
+  "node": "v24.18.0",
+  "pass": 8,
+  "fail": 4,
+  "results": [
+    {
+      "name": "three hand-calculated numeric milestones: 0, 7, 14 days => 0, 350, 700 px",
+      "status": "PASS"
+    },
+    {
+      "name": "three hand-calculated calendar milestones across year boundary",
+      "status": "PASS"
+    },
+    {
+      "name": "switching day/week changes ticks and labels while retaining coordinates",
+      "status": "PASS"
+    },
+    {
+      "name": "nonzero origin, fractions, and positions outside range",
+      "status": "PASS"
+    },
+    {
+      "name": "leap day and DST boundary use calendar days",
+      "status": "PASS"
+    },
+    {
+      "name": "Date at UTC midnight and date-only strings agree",
+      "status": "PASS"
+    },
+    {
+      "name": "invalid numeric ranges, widths, and unsupported units are rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "reversed calendar range and invalid start date are rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "nonexistent end date must be rejected instead of falling back to one day",
+      "status": "FAIL",
+      "message": "Missing expected exception (RangeError)."
+    },
+    {
+      "name": "malformed end date must be rejected instead of falling back to one day",
+      "status": "FAIL",
+      "message": "Missing expected exception (RangeError)."
+    },
+    {
+      "name": "two invalid calendar boundaries must be rejected",
+      "status": "FAIL",
+      "message": "Missing expected exception (RangeError)."
+    },
+    {
+      "name": "Date source mutation must not change a previously created scale",
+      "status": "FAIL",
+      "message": "Expected values to be strictly equal:\n\n40 !== 50\n"
+    }
+  ],
+  "detail": {
+    "invalidEnd": {
+      "duration": 1,
+      "ticks": [
+        {
+          "value": 0,
+          "x": 0,
+          "label": "28/02"
+        },
+        {
+          "value": 1,
+          "x": 300,
+          "label": "29/02"
+        }
+      ]
+    },
+    "dateMutation": {
+      "before": 50,
+      "after": 40
+    }
+  }
+}

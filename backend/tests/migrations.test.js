@@ -16,6 +16,10 @@ const history = names.map((name, index) => ({
     name,
     checksum: createHash("sha256").update(sql[index]).digest("hex")
 }));
+const legacyProgress = {
+    name: "012_add_actual_progress.sql",
+    checksum: "7898766f8a5ebc1888ccc61575e2df0f0b6bbb2f2c5732134995000974d42dee"
+};
 
 function legacyColumns() {
     return [
@@ -55,14 +59,28 @@ function makeClient({
                 return { rows: [{ present: usersExist }] };
             }
             if (statement.includes("FROM information_schema.columns")) {
+                if (statement.includes("table_name = 'tasks'")) {
+                    return { rows: [
+                        { column_name: "actual_start_date", data_type: "date", is_nullable: "YES", column_default: null },
+                        { column_name: "actual_end_date", data_type: "date", is_nullable: "YES", column_default: null },
+                        { column_name: "percent_complete", data_type: "integer", is_nullable: "NO", column_default: "0" }
+                    ] };
+                }
                 return { rows: columns };
             }
             if (statement.includes("FROM pg_constraint")) {
+                if (statement.includes("conrelid = 'tasks'::regclass")) {
+                    return { rows: [
+                        { conname: "tasks_percent_complete_check", contype: "c", convalidated: true, definition: "CHECK ((percent_complete >= 0) AND (percent_complete <= 100))" },
+                        { conname: "tasks_actual_dates_order_check", contype: "c", convalidated: true, definition: "CHECK ((actual_start_date IS NULL) OR (actual_end_date IS NULL) OR (actual_end_date >= actual_start_date))" }
+                    ] };
+                }
                 return { rows: constraints.map(definition => ({ definition })) };
             }
             if (["BEGIN", "BEGIN READ ONLY", "COMMIT", "ROLLBACK"].includes(statement)
                 || statement.includes("CREATE TABLE IF NOT EXISTS schema_migrations")
                 || statement.startsWith("INSERT INTO schema_migrations")
+                || statement.startsWith("UPDATE schema_migrations SET name")
                 || statement.startsWith("DELETE FROM schema_migrations")
                 || sql.includes(statement) || downSql.includes(statement)) {
                 return { rows: [] };
@@ -148,6 +166,63 @@ describe("Migration runner (no database connection)", () => {
         expect(statements(client).filter(statement => sql.includes(statement)))
             .toEqual(sql.slice(t04Count));
         expect(statements(client).at(-1)).toBe("COMMIT");
+    });
+
+    test("legacy actual-progress history is safely adopted and missing migrations run in order", async () => {
+        const client = makeClient({ applied: [...history.slice(0, 11), legacyProgress] });
+
+        const messages = await runMigrations({ client });
+        expect(client.query).toHaveBeenCalledWith(
+            "UPDATE schema_migrations SET name = $1, checksum = $2 WHERE name = $3 AND checksum = $4",
+            [history.at(-1).name, history.at(-1).checksum, legacyProgress.name, legacyProgress.checksum]
+        );
+        expect(statements(client).filter(statement => sql.includes(statement)))
+            .toEqual(sql.slice(11, -1));
+        expect(messages).toEqual(names.slice(11, -1).map(name => `Applied: ${name}`));
+        expect(statements(client).at(-1)).toBe("COMMIT");
+    });
+
+    test("a T-34 history recorded as 015 is adopted as 016 after upstream 015 is added", async () => {
+        const legacy015 = {
+            name: "015_add_actual_progress.sql",
+            checksum: history.at(-1).checksum
+        };
+        const client = makeClient({ applied: [...history.slice(0, 14), legacy015] });
+
+        const messages = await runMigrations({ client });
+
+        expect(client.query).toHaveBeenCalledWith(
+            "UPDATE schema_migrations SET name = $1, checksum = $2 WHERE name = $3 AND checksum = $4",
+            [history.at(-1).name, history.at(-1).checksum, legacy015.name, legacy015.checksum]
+        );
+        expect(statements(client).filter(statement => sql.includes(statement)))
+            .toEqual([sql[14]]);
+        expect(messages).toEqual(["Applied: 015_add_task_actuals.sql"]);
+        expect(statements(client).at(-1)).toBe("COMMIT");
+    });
+
+    test("status recognizes the legacy progress migration without writing history", async () => {
+        const client = makeClient({ applied: [...history.slice(0, 11), legacyProgress] });
+
+        const messages = await runMigrations({ client, command: "status" });
+
+        expect(messages.slice(11)).toEqual([
+            "pending: 012_create_project_operations.sql",
+            "pending: 013_create_site_management.sql",
+            "pending: 014_create_project_invitations.sql",
+            "pending: 015_add_task_actuals.sql",
+            "applied: 016_add_actual_progress.sql"
+        ]);
+        expect(statements(client).some(statement => statement.startsWith("UPDATE schema_migrations"))).toBe(false);
+        expect(statements(client).at(-1)).toBe("COMMIT");
+    });
+
+    test("legacy progress history with an unexpected checksum is not changed", async () => {
+        const client = makeClient({ applied: [...history.slice(0, 11), { ...legacyProgress, checksum: "0".repeat(64) }] });
+
+        await expect(runMigrations({ client })).rejects.toThrow("checksum is unknown");
+        expect(statements(client).some(statement => statement.startsWith("UPDATE schema_migrations"))).toBe(false);
+        expect(statements(client).at(-1)).toBe("ROLLBACK");
     });
 
     test("a failed upgrade rolls back SQL and history together", async () => {

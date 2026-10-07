@@ -1,0 +1,302 @@
+﻿[
+    {
+        "path":  "backend/tests\\workItemValidation.test.js",
+        "hash":  "AA1F841BAFFFEFFA34366B2458FFE85656A9D688E7D22D131D226535DA9E0AEB"
+    },
+    {
+        "path":  "backend/tests\\workItems.test.js",
+        "hash":  "448CB4DCEC89E824A3D3FCDFE913C7BA76F53A705D65171E9DBEB3EBB4B4022F"
+    },
+    {
+        "path":  "backend/tests\\workItemController.test.js",
+        "hash":  "8CF139701E3E83B1E164C1EA2DD482F5B022F92F0510C10B729CABB6DD5A0C6B"
+    },
+    {
+        "path":  "backend/tests\\sprint2.postgres.test.js",
+        "hash":  "C5CD2FE49C44F5EEF5F99569D90ACFDE9C61E270D319A5F3659683117BF50736"
+    },
+    {
+        "path":  "backend/tests\\schedule.test.js",
+        "hash":  "8312AC259389BEA12F0E230B1320832595266DB882E77D2FB3DF0AAFC83BF703"
+    },
+    {
+        "path":  "backend/tests\\projectsMigration.test.js",
+        "hash":  "DC380D376D99C77FDAADDC2C96D5847852B1550A550EB528C3331F73F890D3B2"
+    },
+    {
+        "path":  "backend/tests\\projectMembersMigration.test.js",
+        "hash":  "877ACC7D65BC5E99515695E5E4A70651A5DA1EA679F9376346591A910DDB3AAB"
+    },
+    {
+        "path":  "backend/tests\\projectAccess.test.js",
+        "hash":  "13869501EE4681D793042A6850C9CCDBD54A885B225605285D4419FA3234E83E"
+    },
+    {
+        "path":  "backend/tests\\progressMigration.test.js",
+        "hash":  "0B63B7EA34CE8A77D1286330534CEB859A6FBA6D274EFD14FAF94DDE154B13CD"
+    },
+    {
+        "path":  "backend/tests\\progress.test.js",
+        "hash":  "51C0D93E9A48E97132879991AFECB842DAAA71EEBAE52B4737B13CC5320AC520"
+    },
+    {
+        "path":  "backend/tests\\migrations.test.js",
+        "hash":  "CE2A5F62BAAF5EBCA5BE98FD426E8F42C7AD859EBB0F7A16820AED24BBFDF98D"
+    },
+    {
+        "path":  "backend/tests\\dependencyCycle.test.js",
+        "hash":  "5E1921164581EA5EA38E8969C30F5A393CB1EB3726C7B8324C6F16CDC8DFAA35"
+    },
+    {
+        "path":  "backend/src\\test-db.js",
+        "hash":  "C770B04A73A2A23A284505341386487B35E401F6505D00C731BE4EABE4DDB10C"
+    },
+    {
+        "path":  "backend/src\\app.js",
+        "hash":  "79207DB209918C8D52CEA7E2ECA547366C9928A636ADE213D932C36DC9A5DCD5"
+    },
+    {
+        "path":  "backend/src\\run-migration.js",
+        "hash":  "AFD530D654912F25B15DE1B283B8706751D4804EC26467BB599D582B1104075C"
+    },
+    {
+        "path":  "backend/tests\\data\\cpm-scenarios.json",
+        "hash":  "A5CC853D5072E5586C8528A490B8B720356F582753D3D3FE28110954C872E747"
+    },
+    {
+        "path":  "backend/tests\\cpm.test.js",
+        "hash":  "871F74FA02D8BA9183B0B5D06B20EA9D0B506EF1994B6CB9BEAC9CF93C55D315"
+    },
+    {
+        "path":  "backend/tests\\auth.test.js",
+        "hash":  "44076DE18B04372D4574ABE37654CB5BAE19FB2D1E7DF30A84F5E784A4A05F87"
+    },
+    {
+        "path":  "backend/tests\\app.test.js",
+        "hash":  "C8BCDE2EE9C092B85FE90B84F5EAEE56A896730F5E03FB1061A561291E5CCBD6"
+    },
+    {
+        "path":  "backend/src\\services\\taskService.js",
+        "hash":  "D3025985D069438FABD45AD9144BA5381F4EFD0CAE7EF013DA5FF7FCD5185833"
+    },
+    {
+        "path":  "backend/src\\services\\scheduleService.js",
+        "hash":  "A155859EEA4EE9C0193B62232024EE970392341A00C57385E4CA7630943C3040"
+    },
+    {
+        "path":  "backend/src\\services\\cpmService.js",
+        "hash":  "B69F135F24D6EEE3E32CE20F27860F22F69256E56B6F63E19CF62E54A1BC443B"
+    },
+    {
+        "path":  "backend/src\\services\\authService.js",
+        "hash":  "2D4735703959CC669D3C913671FA56EAE4BDF09E10D5491B5EF01E2A69474DD6"
+    },
+    {
+        "path":  "backend/src\\server.js",
+        "hash":  "A7715B21417DD99D4A0D8C248FCF685637502A0E4EDDBD62059ECD2F2A76009F"
+    },
+    {
+        "path":  "backend/src\\seed-roles.js",
+        "hash":  "3ECE60B83AF0C2F0EEB5D81DCE790ED7261575C8976FE7CAE1D65BAC73C85A1A"
+    },
+    {
+        "path":  "backend/src\\routes\\workItemRoutes.js",
+        "hash":  "CB00FBA8454C54F3EF31F1527618C3B4048DDB76ECFEE7B8EDC826A5F4820780"
+    },
+    {
+        "path":  "backend/src\\routes\\taskRoutes.js",
+        "hash":  "B58049F319240A98240D65553D6DE9F910C38E22193880569A73ADC354E8883D"
+    },
+    {
+        "path":  "backend/src\\routes\\scheduleRoutes.js",
+        "hash":  "6ACE6E2AAFBAF765674F26F3409C54DE7DC15B85741A0B02E07C908775EEFFE1"
+    },
+    {
+        "path":  "backend/src\\routes\\projectRoutes.js",
+        "hash":  "5214B813F901BE622BF2BC09D411A4E1586D5C56A35BACD4E3D57BFD0B4CC19E"
+    },
+    {
+        "path":  "backend/src\\routes\\index.js",
+        "hash":  "DC65E80DA85DADD9F8BA8C864317CBEA2627B9E7BF1E48BFD2B7CF903CF0ADB5"
+    },
+    {
+        "path":  "backend/src\\routes\\authRoutes.js",
+        "hash":  "B6CC35AE0E0BF0E03159F113C4C2195950193260B4A861004E63B3248AD7CCC3"
+    },
+    {
+        "path":  "backend/src\\controllers\\authController.js",
+        "hash":  "92D872B5849EE35C1FC28F72C94EAF5E855657EBA7C2097F5606FA0265608276"
+    },
+    {
+        "path":  "backend/src\\controllers\\homeController.js",
+        "hash":  "53961D408E1697D2D31ACB01C2A2C441ECF9FF668FAEE0AE1456FDCFB2F9B6AB"
+    },
+    {
+        "path":  "backend/src\\controllers\\workItemController.js",
+        "hash":  "54FB4BB0DB70F33E1C72008A98BE02C9493182B6ED15C77DAB429BBB0F7BA14B"
+    },
+    {
+        "path":  "backend/src\\controllers\\taskController.js",
+        "hash":  "FE71F4CC9B31158DAFE926478D511E0D3573BBE232E31738B49FEF7B3165C6C2"
+    },
+    {
+        "path":  "backend/src\\controllers\\scheduleController.js",
+        "hash":  "A6F3BD32F0525E5CEBD283707BDABB143ED608D20EB5A5F4571060403E8A64A2"
+    },
+    {
+        "path":  "backend/src\\models\\workItemModel.js",
+        "hash":  "9FC9F547295965862986D4C7E0024186BD32BE2A0AC33D72821894F6FF2529F2"
+    },
+    {
+        "path":  "backend/src\\config\\session.js",
+        "hash":  "8D1F752C0CFED42868C9528FE1B365D6BC764308416473ACDAA47535E04C80DB"
+    },
+    {
+        "path":  "backend/src\\models\\workItemCrudModel.js",
+        "hash":  "5FCFA422C5EF8A0CF6E7582B982E60B3400BB790EDE2F045BE9238BEE3896153"
+    },
+    {
+        "path":  "backend/src\\config\\password.js",
+        "hash":  "BFE88F85CF48D57C74A0587D4C3BBA0000203F5C844CA5F705F28FAF1F230482"
+    },
+    {
+        "path":  "backend/src\\models\\userModel.js",
+        "hash":  "A3DEA80B5574E98D33DBE1BD44D746807F95F794674F45971F45E2ED58962110"
+    },
+    {
+        "path":  "backend/src\\config\\database.js",
+        "hash":  "DE18E0B8A67EDED28D2FA4B3F7DB1BF0485888FF3AB628CDEF9210061890EF93"
+    },
+    {
+        "path":  "backend/src\\models\\taskModel.js",
+        "hash":  "C843A974DCF2B99A5F8709F61DB3E3D28CCFB5DD7D8EA6BB4A291E9728027704"
+    },
+    {
+        "path":  "backend/src\\models\\scheduleModel.js",
+        "hash":  "2B827D8993646D11D9E1EDD5164257507EC45E61BA9BF682CE3326BE365D3206"
+    },
+    {
+        "path":  "backend/src\\models\\README.md",
+        "hash":  "9FDBC2FF0922E9023AAF83472E3616621FE94A3A156B78E3CE4902A898416C3F"
+    },
+    {
+        "path":  "backend/src\\models\\projectTransaction.js",
+        "hash":  "E140EBE7A5EE3F4508FB9A9FAD059EE2BBB581A9DF90DBD5677CFD1742DC8E6F"
+    },
+    {
+        "path":  "backend/src\\models\\projectMemberModel.js",
+        "hash":  "01C6C07A635D32EC6FDFFE0870CECE6DF36377C6CF20E60FC066C5F737BE88BC"
+    },
+    {
+        "path":  "backend/src\\middleware\\README.md",
+        "hash":  "FC7AB76ED430EEC7C414B9A907C4BC1FEE04CE26BF4EB79758CEB9E849AE1E8B"
+    },
+    {
+        "path":  "backend/src\\middleware\\projectAccess.js",
+        "hash":  "94A310CDA9B191C148A8111EF40A78D1230696DF714060E8BB8570FE02FCFD66"
+    },
+    {
+        "path":  "backend/src\\middleware\\errorHandler.js",
+        "hash":  "7207C04DE1085A89D2E74B9767688EE2A8D7CC9FBB8C0C2F25FF7FDA25E68D2A"
+    },
+    {
+        "path":  "backend/src\\middleware\\cors.js",
+        "hash":  "1CA1F833C4F2CC1E4C17AB73949D8BFC0AE63AF86E00632B7C9A1535C3591E6D"
+    },
+    {
+        "path":  "backend/src\\middleware\\auth.js",
+        "hash":  "04BF79DBD15E0ACDE7E91D296A8CFE432C7688F9F502432EFF0742D762E39AC4"
+    },
+    {
+        "path":  "backend/src\\migrations\\006_add_user_fullname.down.sql",
+        "hash":  "F9D594B5104146357C7CCA010CF8E6B2A863A2B329D0CFE7E3BB7F44740D3973"
+    },
+    {
+        "path":  "backend/src\\migrations\\008_create_projects_and_work_items.sql",
+        "hash":  "CC0529DD3C8DB5703A7F3248D4DCF5A46676052A5C70E808CBDC9A5C28C98770"
+    },
+    {
+        "path":  "backend/src\\migrations\\005_create_user_sessions.sql",
+        "hash":  "7056B44BAF7034E372E8B2070453A8C0664BFC4B00ACD43ECDE7CE170AB3AA8F"
+    },
+    {
+        "path":  "backend/src\\migrations\\008_create_projects_and_work_items.down.sql",
+        "hash":  "6ABF80BAC77EBB19E106EE9B8965967412EA868A497D37FA3DFFAF7F223FAEDD"
+    },
+    {
+        "path":  "backend/src\\migrations\\005_create_user_sessions.down.sql",
+        "hash":  "4FC5282F99DEDF8607545A287C60AF185E6042631EC0930019190A0B6B4E61B1"
+    },
+    {
+        "path":  "backend/src\\migrations\\007_create_project_members.sql",
+        "hash":  "A15E828455C3A5663E9BC9B5EE5CD70C4C31CBFAF740CCAED114F018AB6A3A78"
+    },
+    {
+        "path":  "backend/src\\migrations\\004_add_login_security.sql",
+        "hash":  "392FC65F4D285B6429089E5FD20A10A297876CCA2CB3A9A8F55575EFDCD244B3"
+    },
+    {
+        "path":  "backend/src\\migrations\\007_create_project_members.down.sql",
+        "hash":  "036179AD793AD551D53E5E6B9135B5782910CFC2656F82B0EE073074FAAD12C4"
+    },
+    {
+        "path":  "backend/src\\migrations\\004_add_login_security.down.sql",
+        "hash":  "C48210DA24E7114FB51C070DC0BF2327907D036D55352963869DAF45AA027A65"
+    },
+    {
+        "path":  "backend/src\\migrations\\006_add_user_fullname.sql",
+        "hash":  "C32CA02D26837F52EA9786FCB956BE08C6583F2269BF1939F917C72D81063584"
+    },
+    {
+        "path":  "backend/src\\migrations\\010_create_dependencies.down.sql",
+        "hash":  "97C6B1D9909156F064AF06D23A979443BC8AA7A95AA813B7DA5F150AD6417D27"
+    },
+    {
+        "path":  "backend/src\\migrations\\009_create_tasks.sql",
+        "hash":  "2307BC561408294117ED37E1B80A84A6135657F6C17869D4F6CF1A763BF5EA31"
+    },
+    {
+        "path":  "backend/src\\migrations\\009_create_tasks.down.sql",
+        "hash":  "0987A39BB68A5B098F5506703687C5B051425C97320C82EE48E9363740264166"
+    },
+    {
+        "path":  "backend/src\\migrations\\011_create_schedule_results.down.sql",
+        "hash":  "9018A95D9164A09D19950B465FFC45ED1509EFA94B6827E08D92A34AD818B51A"
+    },
+    {
+        "path":  "backend/src\\migrations\\010_create_dependencies.sql",
+        "hash":  "3A20651D6E0769BBC3D59F8DB74ADD739261EA7623B7B2F84D80A3DC69D0560F"
+    },
+    {
+        "path":  "backend/src\\migrations\\011_create_schedule_results.sql",
+        "hash":  "046BC443A096FA2D8472C747EADA197DDAEBD4C596B368E48E97C998E828B41E"
+    },
+    {
+        "path":  "backend/src\\migrations\\012_add_actual_progress.down.sql",
+        "hash":  "04E0B1DD202B187195EA438C09B64BB9759DB3CD891654C3E54F5F3BE98A6555"
+    },
+    {
+        "path":  "backend/src\\migrations\\002_create_roles.down.sql",
+        "hash":  "CDFC71C8056530197647D21DAA54E97BF48E61765047483AF2904F6CD9836CCF"
+    },
+    {
+        "path":  "backend/src\\migrations\\001_create_users.sql",
+        "hash":  "258571A2F0B99FA67DE89D37875AA077CDEF2C2990534D8835CCA59434CEDE9D"
+    },
+    {
+        "path":  "backend/src\\migrations\\002_create_roles.sql",
+        "hash":  "12BA879A301432DE4E3A2AE2D5C9C651B1FCA3B16F96F19D74C8BB0DBC091852"
+    },
+    {
+        "path":  "backend/src\\migrations\\003_update_users.down.sql",
+        "hash":  "4CB10EF43E6AAA1EAA757F28E4A8511822A7904A1D8A8CBD7DF09A29475FE1A9"
+    },
+    {
+        "path":  "backend/src\\migrations\\003_update_users.sql",
+        "hash":  "C71B22503BD0774C2CBFC681A0BB5565B58D44416A92D7D928580C142D3BBD42"
+    },
+    {
+        "path":  "backend/src\\migrations\\012_add_actual_progress.sql",
+        "hash":  "7898766F8A5EBC1888CCC61575E2DF0F0B6BBB2F2C5732134995000974D42DEE"
+    }
+]
