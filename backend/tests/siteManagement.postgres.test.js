@@ -98,7 +98,7 @@ describePostgres("Site management against real PostgreSQL and session authorizat
         const putRes = await agents.engineer.put(url(`/journals/${created.id}`)).send({ ...body, content: "Sửa nhật ký đã khóa", revision: created.revision }).expect(403);
         expect(putRes.body.message).toBe("Nhật ký ngày đã bị khóa sổ, không thể chỉnh sửa hoặc xóa.");
 
-        const patchRes = await agents.engineer.patch(url(`/journals/${created.id}`)).send({ content: "Sửa nhật ký qua patch", revision: created.revision }).expect(403);
+        const patchRes = await agents.engineer.patch(url(`/journals/${created.id}`)).send({ ...body, content: "Sửa nhật ký qua patch", revision: created.revision }).expect(403);
         expect(patchRes.body.message).toBe("Nhật ký ngày đã bị khóa sổ, không thể chỉnh sửa hoặc xóa.");
 
         const deleteRes = await agents.engineer.delete(url(`/journals/${created.id}`)).send({ revision: created.revision }).expect(403);

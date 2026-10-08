@@ -47,10 +47,19 @@ function createSiteManagementModel(pool) {
         saveDaily: (projectId, day, values) => one(`INSERT INTO journal_daily_info(project_id,day,manpower,equipment,weather) VALUES($1,$2,$3,$4,$5)
             ON CONFLICT(project_id,day) DO UPDATE SET manpower=$3,equipment=$4,weather=$5,revision=journal_daily_info.revision+1 RETURNING *`, [projectId,day,values.manpower,values.equipment,values.weather]),
         setDayLock: async (projectId, day, userId, locked, reason) => {
+            const previous = await one("SELECT locked FROM journal_day_locks WHERE project_id=$1 AND day=$2", [projectId, day]);
+            if (!previous || previous.locked !== locked) {
+                if (locked) {
+                    await query(`UPDATE site_journals SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
+                    await query(`UPDATE journal_daily_info SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
+                }
+            }
             const lock = await one(`INSERT INTO journal_day_locks(project_id,day,changed_by,locked,reason) VALUES($1,$2,$3,$4,$5)
                 ON CONFLICT(project_id,day) DO UPDATE SET changed_by=$3,locked=$4,reason=$5,updated_at=CURRENT_TIMESTAMP RETURNING *,day::text AS day`, [projectId,day,userId,locked,reason]);
-            await query(`UPDATE site_journals SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
-            await query(`UPDATE journal_daily_info SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
+            if (!locked) {
+                await query(`UPDATE site_journals SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
+                await query(`UPDATE journal_daily_info SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
+            }
             return { ...lock, is_locked: lock.locked, locked_at: lock.updated_at, locked_by: lock.changed_by };
         },
         lockJournalRecord: (projectId, id, userId, locked) => one(`UPDATE site_journals SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *,day::text AS day`, [projectId,id,locked,userId]),
