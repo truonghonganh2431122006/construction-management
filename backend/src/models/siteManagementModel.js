@@ -46,16 +46,26 @@ function createSiteManagementModel(pool) {
         dayLock: (projectId, day) => one("SELECT *,day::text AS day FROM journal_day_locks WHERE project_id=$1 AND day=$2", [projectId,day]),
         saveDaily: (projectId, day, values) => one(`INSERT INTO journal_daily_info(project_id,day,manpower,equipment,weather) VALUES($1,$2,$3,$4,$5)
             ON CONFLICT(project_id,day) DO UPDATE SET manpower=$3,equipment=$4,weather=$5,revision=journal_daily_info.revision+1 RETURNING *`, [projectId,day,values.manpower,values.equipment,values.weather]),
-        setDayLock: (projectId, day, userId, locked, reason) => one(`INSERT INTO journal_day_locks(project_id,day,changed_by,locked,reason) VALUES($1,$2,$3,$4,$5)
-            ON CONFLICT(project_id,day) DO UPDATE SET changed_by=$3,locked=$4,reason=$5,updated_at=CURRENT_TIMESTAMP RETURNING *,day::text AS day`, [projectId,day,userId,locked,reason]),
+        setDayLock: async (projectId, day, userId, locked, reason) => {
+            const lock = await one(`INSERT INTO journal_day_locks(project_id,day,changed_by,locked,reason) VALUES($1,$2,$3,$4,$5)
+                ON CONFLICT(project_id,day) DO UPDATE SET changed_by=$3,locked=$4,reason=$5,updated_at=CURRENT_TIMESTAMP RETURNING *,day::text AS day`, [projectId,day,userId,locked,reason]);
+            await query(`UPDATE site_journals SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
+            await query(`UPDATE journal_daily_info SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND day=$2`, [projectId,day,locked,userId]);
+            return { ...lock, is_locked: lock.locked, locked_at: lock.updated_at, locked_by: lock.changed_by };
+        },
+        lockJournalRecord: (projectId, id, userId, locked) => one(`UPDATE site_journals SET is_locked=$3, locked_at=CASE WHEN $3 THEN CURRENT_TIMESTAMP ELSE NULL END, locked_by=CASE WHEN $3 THEN $4::integer ELSE NULL END WHERE project_id=$1 AND id=$2 AND deleted_at IS NULL RETURNING *,day::text AS day`, [projectId,id,locked,userId]),
         journals: (projectId) => query(`SELECT j.*,j.day::text AS day,j.time::text AS time,u.fullname AS author,w.title AS item_name,
-            coalesce(l.locked,FALSE) AS locked,d.manpower,d.equipment,d.weather,d.revision AS daily_revision,
+            (coalesce(j.is_locked,FALSE) OR coalesce(l.locked,FALSE)) AS is_locked,
+            (coalesce(j.is_locked,FALSE) OR coalesce(l.locked,FALSE)) AS locked,
+            coalesce(j.locked_at, l.updated_at) AS locked_at,
+            coalesce(j.locked_by, l.changed_by) AS locked_by,
+            d.manpower,d.equipment,d.weather,d.revision AS daily_revision,
             coalesce((SELECT json_agg(photo_id ORDER BY photo_id) FROM journal_photos WHERE journal_id=j.id),'[]'::json) AS photo_ids
             FROM site_journals j JOIN users u ON u.id=j.author_id JOIN work_items w ON w.id=j.work_item_id
             LEFT JOIN journal_day_locks l ON l.project_id=j.project_id AND l.day=j.day LEFT JOIN journal_daily_info d ON d.project_id=j.project_id AND d.day=j.day
             WHERE j.project_id=$1 AND j.deleted_at IS NULL ORDER BY j.day DESC,j.time DESC,j.id DESC`, [projectId]),
-        journalByUuid: (uuid) => one("SELECT *,day::text AS day,time::text AS time FROM site_journals WHERE client_uuid=$1", [uuid]),
-        journal: (projectId, id) => one("SELECT *,day::text AS day,time::text AS time FROM site_journals WHERE project_id=$1 AND id=$2 AND deleted_at IS NULL", [projectId,id]),
+        journalByUuid: (uuid) => one(`SELECT j.*,j.day::text AS day,j.time::text AS time, (coalesce(j.is_locked,FALSE) OR coalesce(l.locked,FALSE)) AS is_locked FROM site_journals j LEFT JOIN journal_day_locks l ON l.project_id=j.project_id AND l.day=j.day WHERE j.client_uuid=$1`, [uuid]),
+        journal: (projectId, id) => one(`SELECT j.*,j.day::text AS day,j.time::text AS time, (coalesce(j.is_locked,FALSE) OR coalesce(l.locked,FALSE)) AS is_locked FROM site_journals j LEFT JOIN journal_day_locks l ON l.project_id=j.project_id AND l.day=j.day WHERE j.project_id=$1 AND j.id=$2 AND j.deleted_at IS NULL`, [projectId,id]),
         createJournal: (projectId, userId, j) => one(`INSERT INTO site_journals(project_id,work_item_id,author_id,client_uuid,input_hash,day,time,content) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *,day::text AS day`, [projectId,j.work_item_id,userId,j.client_uuid,j.input_hash,j.day,j.time,j.content]),
         updateJournal: (projectId, id, j) => one(`UPDATE site_journals SET work_item_id=$3,day=$4,time=$5,content=$6,revision=revision+1,updated_at=CURRENT_TIMESTAMP
             WHERE project_id=$1 AND id=$2 AND revision=$7 AND deleted_at IS NULL RETURNING *,day::text AS day`, [projectId,id,j.work_item_id,j.day,j.time,j.content,j.revision]),

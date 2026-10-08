@@ -31,7 +31,12 @@ function createSiteManagementService({ model }) {
         catch (error) {
             if (error.code==="23505") throw v.problem(409,"Dữ liệu đã tồn tại hoặc phiếu nghiệm thu đã thuộc đề nghị thanh toán khác.");
             if (error.code==="23503") throw v.problem(409,"Đối tượng liên quan không còn tồn tại.");
-            if (error.code==="23514") throw v.problem(422,"Thao tác không hợp lệ: kiểm tra giới hạn hợp đồng, tồn kho hoặc trạng thái đã khóa.");
+            if (error.code==="23514") {
+                if (error.message && (error.message.includes("Journal day is locked") || error.message.includes("locked"))) {
+                    throw v.problem(403,"Nhật ký ngày đã bị khóa sổ, không thể chỉnh sửa hoặc xóa.");
+                }
+                throw v.problem(422,"Thao tác không hợp lệ: kiểm tra giới hạn hợp đồng, tồn kho hoặc trạng thái đã khóa.");
+            }
             throw error;
         }
     }
@@ -45,7 +50,13 @@ function createSiteManagementService({ model }) {
         const entries = await transaction.photoIds(projectId,ids);
         if (entries.length!==ids.length || entries.some((entry) => (actor.role==="worker" && entry.uploaded_by!==actor.id) || (itemId && entry.work_item_id!==itemId))) throw v.problem(422,"Ảnh phải thuộc đúng dự án và hạng mục");
     }
-    async function unlocked(transaction,projectId,day) { if ((await transaction.dayLock(projectId,day))?.locked) throw v.problem(409,"Ngày nhật ký đã khóa sổ. Ban quản lý cần mở khóa trước khi sửa."); }
+    async function unlocked(transaction,projectId,day,recordId = null) {
+        const dayLock = day ? await transaction.dayLock(projectId,day) : null;
+        const record = recordId ? await transaction.journal(projectId,recordId) : null;
+        if ((dayLock && (dayLock.locked || dayLock.is_locked)) || (record && (record.is_locked || record.locked))) {
+            throw v.problem(403,"Nhật ký ngày đã bị khóa sổ, không thể chỉnh sửa hoặc xóa.");
+        }
+    }
     function canEditRecord(actor,record) { if (record.created_by!==actor.id && !MANAGE.includes(actor.role)) throw v.problem(403,"Bạn chỉ được chỉnh sửa phiếu do mình lập"); }
     async function notifyReturn(transaction,projectId,record,type,route) {
         await transaction.notify(projectId,record.created_by,type,"Phiếu của bạn đã được trả lại. Xem lý do và cập nhật hồ sơ.",`/${route}?projectId=${projectId}`,`${type}:${record.id}:${record.revision}`);
@@ -120,10 +131,10 @@ function createSiteManagementService({ model }) {
             if (!journalId) { j.client_uuid=v.uuid(body.client_uuid); j.input_hash=v.hash({ work_item_id:j.work_item_id,day:j.day,time:j.time,content:j.content,photo_ids:j.photo_ids,...daily }); }
             return tx(projectId,async (t) => {
                 if (!journalId) { const existing=await t.journalByUuid(j.client_uuid); if (existing) { if (existing.project_id!==projectId || existing.author_id!==actor.id || existing.input_hash!==j.input_hash) throw v.problem(409,"Mã nhật ký đã được sử dụng cho nội dung khác"); return { journal:existing,replayed:true }; } }
-                await item(t,projectId,j.work_item_id); await unlocked(t,projectId,j.day); await photos(t,projectId,j.photo_ids,actor,j.work_item_id);
+                await item(t,projectId,j.work_item_id); await unlocked(t,projectId,j.day,journalId); await photos(t,projectId,j.photo_ids,actor,j.work_item_id);
                 const previous=journalId ? await t.journal(projectId,v.id(journalId)) : null;
                 if (journalId && !previous) throw v.problem(404,"Không tìm thấy nhật ký");
-                if (previous) { if (previous.author_id!==actor.id && !MANAGE.includes(actor.role)) throw v.problem(403,"Chỉ được sửa nhật ký do mình ghi"); await unlocked(t,projectId,previous.day); v.revision(previous.revision,j.revision); }
+                if (previous) { if (previous.author_id!==actor.id && !MANAGE.includes(actor.role)) throw v.problem(403,"Chỉ được sửa nhật ký do mình ghi"); await unlocked(t,projectId,previous.day,previous.id); v.revision(previous.revision,j.revision); }
                 const previousDaily=await t.daily(projectId,j.day);
                 const changedDaily=!previousDaily || ["manpower","equipment","weather"].some((key) => previousDaily[key]!==daily[key]);
                 if (changedDaily) { v.revision(previousDaily?.revision || 0,body.daily_revision ?? 0); await t.saveDaily(projectId,j.day,daily); }
@@ -142,8 +153,31 @@ function createSiteManagementService({ model }) {
             }
             return { results };
         },
-        async deleteJournal(projectId,actor,id,body) { return tx(projectId,async (t) => { const previous=await t.journal(projectId,v.id(id)); if (!previous) throw v.problem(404,"Không tìm thấy nhật ký"); if (previous.author_id!==actor.id && !MANAGE.includes(actor.role)) throw v.problem(403,"Chỉ được xóa nhật ký do mình ghi"); await unlocked(t,projectId,previous.day); v.revision(previous.revision,body.revision); await t.deleteJournal(projectId,id,body.revision); await t.audit(projectId,actor.id,"journal","delete",id,previous,null); return { id }; }); },
-        async lockJournal(projectId,actor,body) { const day=v.date(body.day); if (typeof body.locked!=="boolean") throw v.problem(400,"Trạng thái khóa không hợp lệ"); if (!body.locked) requireRole(actor,["admin"]); const reason=v.text(body.reason,"Lý do mở khóa",2000,body.locked); return tx(projectId,async (t) => { const previous=await t.dayLock(projectId,day); const result=await t.setDayLock(projectId,day,actor.id,body.locked,reason); await t.audit(projectId,actor.id,"journal",body.locked ? "lock_day" : "unlock_day",day,previous,result); return result; }); },
+        async deleteJournal(projectId,actor,id,body) { return tx(projectId,async (t) => { const previous=await t.journal(projectId,v.id(id)); if (!previous) throw v.problem(404,"Không tìm thấy nhật ký"); if (previous.author_id!==actor.id && !MANAGE.includes(actor.role)) throw v.problem(403,"Chỉ được xóa nhật ký do mình ghi"); await unlocked(t,projectId,previous.day,v.id(id)); v.revision(previous.revision,body.revision); await t.deleteJournal(projectId,id,body.revision); await t.audit(projectId,actor.id,"journal","delete",id,previous,null); return { id }; }); },
+        async lockJournal(projectId,actor,body) {
+            const isLocked = body.is_locked !== undefined ? Boolean(body.is_locked) : body.locked !== undefined ? Boolean(body.locked) : true;
+            if (!isLocked) requireRole(actor,["admin"]);
+            const day = body.day ? v.date(body.day) : null;
+            const recordId = body.recordId || body.id ? v.id(body.recordId || body.id) : null;
+            if (!day && !recordId) throw v.problem(400,"Cần ngày hoặc id nhật ký để khóa sổ");
+            const reason = v.text(body.reason,"Lý do mở khóa",2000,isLocked);
+            return tx(projectId,async (t) => {
+                let result = {};
+                if (day) {
+                    const previous = await t.dayLock(projectId,day);
+                    result = await t.setDayLock(projectId,day,actor.id,isLocked,reason);
+                    await t.audit(projectId,actor.id,"journal",isLocked ? "lock_day" : "unlock_day",day,previous,result);
+                }
+                if (recordId) {
+                    const previous = await t.journal(projectId,recordId);
+                    if (!previous) throw v.problem(404,"Không tìm thấy nhật ký");
+                    const updated = await t.lockJournalRecord(projectId,recordId,actor.id,isLocked);
+                    result = { ...result,...updated,is_locked:isLocked,locked:isLocked,locked_at:updated?.locked_at,locked_by:updated?.locked_by };
+                    await t.audit(projectId,actor.id,"journal",isLocked ? "lock_record" : "unlock_record",recordId,previous,updated);
+                }
+                return { is_locked:isLocked,locked:isLocked,locked_at:result.locked_at || new Date().toISOString(),locked_by:actor.id,...result };
+            });
+        },
         async acceptanceData(projectId,actor) { return { forms:await model.acceptances(projectId),contracts:await model.contracts(projectId),items:await model.items(projectId),member_role:actor.role,can_edit:[...MANAGE,"engineer"].includes(actor.role),can_approve:ACCEPT_APPROVE.includes(actor.role) }; },
         async saveContract(projectId,actor,itemId,body) {
             const values={ quantity:v.decimal(body.quantity,4),unit:v.text(body.unit,"Đơn vị",30),unit_price:v.decimal(body.unit_price,2,true) };
