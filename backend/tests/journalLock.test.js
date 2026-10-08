@@ -39,6 +39,7 @@ describe("Journal Locking (TTKN-93 [S-24]) API Tests", () => {
         app.patch("/projects/:projectId/journals/:recordId", controller.saveJournal);
         app.delete("/projects/:projectId/journals/:recordId", controller.deleteJournal);
 
+        // eslint-disable-next-line no-unused-vars
         app.use((err, req, res, next) => {
             res.status(err.status || 500).json({ message: err.message });
         });
