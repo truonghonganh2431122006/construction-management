@@ -227,12 +227,13 @@ describePostgres("Site management against real PostgreSQL and session authorizat
     test("013 rollback refuses data, then roundtrips safely on an unused schema", async () => {
         const model=createSiteManagementModel(pool);
         await model.transaction(project,async (t) => t.saveSettings(project,{ latitude:21,longitude:105,radius_m:50 }));
+        expect((await migrate("down"))[0]).toContain("017_add_lock_fields_to_daily_logs.sql");
         expect((await migrate("down"))[0]).toContain("016_create_baselines_and_milestones.sql");
         expect((await migrate("down"))[0]).toContain("015_add_task_actuals.sql");
         expect((await migrate("down"))[0]).toContain("014_create_project_invitations.sql");
         await expect(migrate("down")).rejects.toThrow(/operational data/);
         await pool.query("TRUNCATE projects CASCADE"); await pool.query("DELETE FROM notification_preferences");
         expect((await migrate("down"))[0]).toContain("013_create_site_management.sql");
-        expect(await migrate("up")).toEqual(["Applied: 013_create_site_management.sql", "Applied: 014_create_project_invitations.sql", "Applied: 015_add_task_actuals.sql", "Applied: 016_create_baselines_and_milestones.sql"]);
+        expect(await migrate("up")).toEqual(["Applied: 013_create_site_management.sql", "Applied: 014_create_project_invitations.sql", "Applied: 015_add_task_actuals.sql", "Applied: 016_create_baselines_and_milestones.sql", "Applied: 017_add_lock_fields_to_daily_logs.sql"]);
     });
 });
